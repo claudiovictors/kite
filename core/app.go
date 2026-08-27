@@ -5,30 +5,19 @@ import (
 	"net/http"
 )
 
-// ErrorResponse é o formato padrão de erro em JSON devolvido pelo
-// framework (404, 500, etc), a menos que NotFoundHandler/ErrorHandler
-// sejam sobrescritos pelo usuário.
 type ErrorResponse struct {
 	Error  string `json:"error"`
 	Status int    `json:"status"`
 }
 
-// App é o ponto de entrada do framework, equivalente ao "app" do Express.
 type App struct {
 	router      *Router
 	middlewares []MiddlewareFunc
 
-	// NotFoundHandler é chamado quando nenhuma rota bate com o
-	// método+path da requisição. Por padrão responde 404 em JSON.
 	NotFoundHandler HandlerFunc
-
-	// ErrorHandler é chamado quando um handler retorna um error não
-	// tratado. Por padrão loga no stdout e responde 500 em JSON.
-	ErrorHandler func(req Request, res Response, err error)
+	ErrorHandler    func(req Request, res Response, err error)
 }
 
-// New cria uma nova instância do App, já com handlers padrão de 404 e
-// erro respondendo em JSON.
 func New() *App {
 	app := &App{router: newRouter()}
 	app.NotFoundHandler = defaultNotFoundHandler
@@ -53,8 +42,6 @@ func defaultErrorHandler(req Request, res Response, err error) {
 	}
 }
 
-// Use registra um middleware global, aplicado a todas as rotas
-// registradas a partir deste ponto.
 func (a *App) Use(mw MiddlewareFunc) {
 	a.middlewares = append(a.middlewares, mw)
 }
@@ -69,26 +56,16 @@ func (a *App) register(method, path string, h HandlerFunc) {
 	a.router.Add(method, path, chain(h, a.middlewares))
 }
 
-// Group cria um sub-roteador com prefixo de path, herdando os
-// middlewares já registrados no App até este ponto.
 func (a *App) Group(prefix string) *RouteGroup {
 	inherited := make([]MiddlewareFunc, len(a.middlewares))
 	copy(inherited, a.middlewares)
 	return &RouteGroup{app: a, prefix: prefix, middlewares: inherited}
 }
 
-// ServeHTTP implementa http.Handler, permitindo usar o App diretamente
-// com http.ListenAndServe ou em testes com httptest.
-//
-// Mudanças em relação à versão anterior:
-//   - rota não encontrada -> NotFoundHandler (JSON 404), não mais
-//     http.NotFound (que respondia texto puro "404 page not found")
-//   - handler retornando error -> ErrorHandler (JSON 500); antes só
-//     era logado e o cliente ficava sem nenhuma resposta
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler, params, ok := a.router.Match(r.Method, r.URL.Path)
 	req := Request{Request: r, Params: params}
-	res := newResponse(w)
+	res := newResponse(w, r)
 
 	if !ok {
 		_ = a.NotFoundHandler(req, res)
@@ -100,21 +77,17 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Listen inicia o servidor HTTP no endereço informado (ex: ":3000").
 func (a *App) Listen(addr string) error {
 	log.Printf("kite: ouvindo em %s", addr)
 	return http.ListenAndServe(addr, a)
 }
 
-// RouteGroup representa um conjunto de rotas com prefixo comum,
-// equivalente ao Router() do Express (ex: app.Group("/api")).
 type RouteGroup struct {
 	app         *App
 	prefix      string
 	middlewares []MiddlewareFunc
 }
 
-// Use registra um middleware que se aplica só às rotas deste grupo.
 func (g *RouteGroup) Use(mw MiddlewareFunc) {
 	g.middlewares = append(g.middlewares, mw)
 }

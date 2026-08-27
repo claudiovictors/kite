@@ -1,0 +1,39 @@
+# Binários compilados
+/kite
+/kira
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/dist/
+
+# Base de dados locais (SQLite gerado ao testar)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Ambiente e segredos
+.env
+.env.*
+*.pem
+*.key
+
+# Cobertura de testes
+*.out
+coverage.html
+
+# Logs
+*.log
+
+# Editores/IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

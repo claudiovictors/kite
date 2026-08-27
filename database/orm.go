@@ -1,16 +1,3 @@
-// Package orm implementa um ORM estilo Eloquent (Active Record) sobre
-// database/sql.
-//
-// Roadmap:
-//  1. [feito]     Connect() + registro de metadados de Model via reflection
-//  2. [feito]     QueryBuilder fluente (Where, OrWhere, WhereIn, Join, OrderBy, Limit/Offset, Get, First)
-//  3. [feito]     Find/FindOrFail, Count, Exists, Paginate, Raw
-//  4. [pendente]  Active Record: model.Save() / model.Delete()
-//  5. [pendente]  Migrations (up/down, versionamento de schema)
-//  6. [parcial]   Relacionamentos: HasMany/BelongsTo manuais prontos em
-//                 relations.go; BelongsToMany e resolução automática via
-//                 tags/reflection ainda pendente
-//  7. [pendente]  Eager loading (.With("Posts")) pra evitar N+1
 package database
 
 import (
@@ -21,7 +8,6 @@ import (
 	"sync"
 )
 
-// DB envolve *sql.DB e mantém metadados de todos os models registrados.
 type DB struct {
 	conn *sql.DB
 
@@ -29,9 +15,6 @@ type DB struct {
 	metadata map[reflect.Type]*modelMeta
 }
 
-// Connect abre a conexão usando o driver e DSN informados.
-// O driver precisa estar importado em algum lugar do programa
-// (ex: import _ "github.com/mattn/go-sqlite3").
 func Connect(driver, dsn string) (*DB, error) {
 	conn, err := sql.Open(driver, dsn)
 	if err != nil {
@@ -43,20 +26,10 @@ func Connect(driver, dsn string) (*DB, error) {
 	return &DB{conn: conn, metadata: make(map[reflect.Type]*modelMeta)}, nil
 }
 
-// Model é a struct base que todo model do usuário deve embutir.
-// Ex:
-//
-//	type User struct {
-//	    orm.Model
-//	    Name  string `db:"name"`
-//	    Email string `db:"email"`
-//	}
 type Model struct {
 	ID uint `db:"id"`
 }
 
-// modelMeta guarda os metadados extraídos via reflection de um model:
-// nome da tabela, colunas mapeadas e o índice de cada campo na struct.
 type modelMeta struct {
 	tableName string
 	fields    []fieldMeta
@@ -67,8 +40,6 @@ type fieldMeta struct {
 	column      string
 }
 
-// registerModel inspeciona a struct via reflection e monta o modelMeta,
-// cacheando o resultado (a reflection só roda uma vez por tipo).
 func (db *DB) registerModel(t reflect.Type) *modelMeta {
 	db.mu.RLock()
 	if meta, ok := db.metadata[t]; ok {
@@ -82,7 +53,6 @@ func (db *DB) registerModel(t reflect.Type) *modelMeta {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 
-		// Campo embutido orm.Model: extrai a coluna "id" dele também.
 		if field.Anonymous && field.Type == reflect.TypeOf(Model{}) {
 			meta.fields = append(meta.fields, fieldMeta{structIndex: i, column: "id"})
 			continue
@@ -106,9 +76,6 @@ func (db *DB) registerModel(t reflect.Type) *modelMeta {
 	return meta
 }
 
-// tableNameFor deriva o nome da tabela a partir do nome da struct,
-// convertendo para snake_case e pluralizando de forma simples.
-// Ex: User -> users, OrderItem -> order_items
 func tableNameFor(t reflect.Type) string {
 	name := toSnakeCase(t.Name())
 	if strings.HasSuffix(name, "s") {
