@@ -8,71 +8,130 @@ import (
 	"time"
 )
 
-// ErrSessionNotFound é retornado pelo Store quando o ID não existe ou
-// já expirou.
+/**
+ * Erros estáticos retornados no fluxo de persistência de sessão.
+ */
 var ErrSessionNotFound = errors.New("auth: sessão não encontrada")
 
-// Session representa os dados de uma sessão autenticada. Data é livre
-// pra guardar o que precisar (ex: "user_id", "role").
+/**
+ * Session armazena a estrutura de dados e vigência da sessão ativa.
+ */
 type Session struct {
 	ID        string
 	Data      map[string]interface{}
 	ExpiresAt time.Time
 }
 
-// Expired verifica se a sessão já passou do prazo de validade.
+/**
+ * Expired checa se a sessão ultrapassou a janela temporal válida.
+ */
 func (s *Session) Expired() bool {
 	return time.Now().After(s.ExpiresAt)
 }
 
-// Store é a interface de persistência de sessões. MemoryStore
-// (abaixo) cobre o caso comum de single-instance; pra multi-instância
-// (vários processos atrás de um load balancer), implemente Store sobre
-// Redis/DB e passe pro NewSessionManager — a assinatura não muda.
+/**
+ * Interface para desacoplamento da camada de armazenamento de sessões.
+ */
 type Store interface {
 	Get(id string) (*Session, error)
 	Save(session *Session) error
 	Delete(id string) error
 }
 
-// MemoryStore é uma implementação de Store em memória, protegida por
-// mutex. Simples e rápida, mas não sobrevive a restart nem escala pra
-// múltiplas instâncias do processo.
+/**
+ * MemoryStore provê armazenamento em memória thread-safe com limpeza automática de expirados.
+ */
 type MemoryStore struct {
 	mu       sync.RWMutex
 	sessions map[string]*Session
+	stopGC   chan struct{}
 }
 
-// NewMemoryStore cria um MemoryStore vazio.
-func NewMemoryStore() *MemoryStore {
-	return &MemoryStore{sessions: make(map[string]*Session)}
+/**
+ * NewMemoryStore instancia o armazenamento em memória e inicia a goroutine de varredura periódica.
+ *
+ * @param cleanupInterval Frequência em que a varredura por sessões expiradas é realizada.
+ */
+func NewMemoryStore(cleanupInterval time.Duration) *MemoryStore {
+	store := &MemoryStore{
+		sessions: make(map[string]*Session),
+		stopGC:   make(chan struct{}),
+	}
+
+	if cleanupInterval > 0 {
+		go store.startGC(cleanupInterval)
+	}
+
+	return store
 }
 
+/**
+ * Close encerra com segurança os recursos da store em memória (interrompe o GC).
+ */
+func (m *MemoryStore) Close() {
+	if m.stopGC != nil {
+		close(m.stopGC)
+	}
+}
+
+/**
+ * Get busca uma sessão ativa por ID. Retorna cópia isolada para evitar data races em mutações.
+ */
 func (m *MemoryStore) Get(id string) (*Session, error) {
 	m.mu.RLock()
 	session, ok := m.sessions[id]
-	m.mu.RUnlock()
-
 	if !ok {
+		m.mu.RUnlock()
 		return nil, ErrSessionNotFound
 	}
+
 	if session.Expired() {
-		// Limpeza preguiçosa: remove no primeiro acesso após expirar.
+		m.mu.RUnlock()
 		m.mu.Lock()
 		delete(m.sessions, id)
 		m.mu.Unlock()
 		return nil, ErrSessionNotFound
 	}
-	return session, nil
+
+	// Deep copy de session.Data para garantir isolamento de memória
+	dataCopy := make(map[string]interface{}, len(session.Data))
+	for k, v := range session.Data {
+		dataCopy[k] = v
+	}
+
+	cp := &Session{
+		ID:        session.ID,
+		Data:      dataCopy,
+		ExpiresAt: session.ExpiresAt,
+	}
+	m.mu.RUnlock()
+
+	return cp, nil
 }
 
+/**
+ * Save persiste ou atualiza os dados da sessão no repositório.
+ */
 func (m *MemoryStore) Save(session *Session) error {
 	m.mu.Lock()
-	m.sessions[session.ID] = session
-	m.mu.Unlock()
+	defer m.mu.Unlock()
+
+	dataCopy := make(map[string]interface{}, len(session.Data))
+	for k, v := range session.Data {
+		dataCopy[k] = v
+	}
+
+	m.sessions[session.ID] = &Session{
+		ID:        session.ID,
+		Data:      dataCopy,
+		ExpiresAt: session.ExpiresAt,
+	}
 	return nil
 }
 
+/**
+ * Delete remove explicitamente uma sessão da memória pelo seu ID.
+ */
 func (m *MemoryStore) Delete(id string) error {
 	m.mu.Lock()
 	delete(m.sessions, id)
@@ -80,9 +139,33 @@ func (m *MemoryStore) Delete(id string) error {
 	return nil
 }
 
-// generateSessionID gera um ID aleatório de 32 bytes (256 bits) via
-// crypto/rand, codificado em base64 URL-safe — imprevisível o
-// suficiente pra usar como cookie de sessão.
+/**
+ * startGC executa varreduras periódicas para remoção de chaves inativas sem bloquear leituras massivas.
+ */
+func (m *MemoryStore) startGC(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			m.mu.Lock()
+			now := time.Now()
+			for id, sess := range m.sessions {
+				if now.After(sess.ExpiresAt) {
+					delete(m.sessions, id)
+				}
+			}
+			m.mu.Unlock()
+		case <-m.stopGC:
+			return
+		}
+	}
+}
+
+/**
+ * generateSessionID cria uma sequência aleatória criptograficamente segura de 32 bytes em Base64 URL-safe.
+ */
 func generateSessionID() (string, error) {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
@@ -91,23 +174,21 @@ func generateSessionID() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
-// SessionManager amarra um Store a um cookie HTTP, cuidando de gerar
-// ID, setar/ler/expirar o cookie e persistir no Store.
+/**
+ * SessionManager coordena a integração entre a Store e os cookies da camada HTTP.
+ */
 type SessionManager struct {
 	Store      Store
 	CookieName string
 	TTL        time.Duration
-
-	// Atributos do cookie. Secure=true exige HTTPS — deixa false só em
-	// desenvolvimento local.
-	Secure   bool
-	HTTPOnly bool
-	Path     string
+	Secure     bool
+	HTTPOnly   bool
+	Path       string
 }
 
-// NewSessionManager cria um manager com defaults sensatos: cookie
-// "session_id", TTL de 24h, HttpOnly=true (protege contra XSS lendo o
-// cookie via JS), Secure=false (ajuste pra true em produção com HTTPS).
+/**
+ * NewSessionManager constrói o gerenciador configurado com parâmetros padrão seguros.
+ */
 func NewSessionManager(store Store) *SessionManager {
 	return &SessionManager{
 		Store:      store,

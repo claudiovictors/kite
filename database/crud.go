@@ -7,18 +7,27 @@ import (
 	"strings"
 )
 
-// ErrEmptyUpdate é retornado por Update/QueryBuilder.Update quando o
-// map de valores vem vazio — evita gerar um "UPDATE table SET " inválido.
+/**
+ * ErrEmptyUpdate é retornado por Update ou QueryBuilder.Update quando o map de valores fornecido está vazio,
+ * prevenindo a geração de uma instrução SQL UPDATE inválida.
+ */
 var ErrEmptyUpdate = errors.New("orm: nenhum campo informado para atualizar")
 
-// Create insere um novo registro a partir de data, no estilo do
-// Model::create() do Eloquent. Colunas geradas pelo banco (id
-// autoincrement) são ignoradas no INSERT e preenchidas de volta em
-// data.ID a partir do LastInsertId.
-//
-//	user := &User{Name: "Ana", Email: "ana@ex.com"}
-//	err := database.Create(db, user)
-//	// user.ID já vem preenchido depois disso
+/**
+ * Create insere um novo registro no banco de dados a partir do ponteiro da estrutura fornecida.
+ *
+ * Colunas identificadas como chave primária ("id") são ignoradas na instrução INSERT e preenchidas
+ * automaticamente na struct via LastInsertId.
+ *
+ * Exemplo:
+ *  user := &User{Name: "Ana", Email: "ana@ex.com"}
+ *  err := database.Create(db, user)
+ *  // user.ID é preenchido automaticamente após a inserção
+ *
+ * @param db *DB
+ * @param data *T
+ * @return error
+ */
 func Create[T any](db *DB, data *T) error {
 	t := reflect.TypeOf(*data)
 	meta := db.registerModel(t)
@@ -57,12 +66,17 @@ func Create[T any](db *DB, data *T) error {
 	return nil
 }
 
-// Update atualiza todas as colunas mapeadas de data (exceto "id"),
-// usando data.ID como condição WHERE. Espelha o $model->save() do
-// Eloquent quando o model já existe.
-//
-//	user.Name = "Ana Paula"
-//	err := database.Update(db, user)
+/**
+ * Update atualiza todas as colunas mapeadas de data (exceto "id"), utilizando o valor de data.ID como cláusula WHERE.
+ *
+ * Exemplo:
+ *  user.Name = "Ana Paula"
+ *  err := database.Update(db, user)
+ *
+ * @param db *DB
+ * @param data *T
+ * @return error
+ */
 func Update[T any](db *DB, data *T) error {
 	t := reflect.TypeOf(*data)
 	meta := db.registerModel(t)
@@ -97,15 +111,21 @@ func Update[T any](db *DB, data *T) error {
 	return nil
 }
 
-// Save decide entre Create e Update olhando pro ID de data: ID == 0
-// insere um registro novo, ID != 0 atualiza o existente — igual o
-// comportamento do $model->save() do Eloquent, sem precisar escolher
-// manualmente qual função chamar.
-//
-//	user := &User{Name: "Ana"}
-//	database.Save(db, user) // insere (ID era 0)
-//	user.Name = "Ana Paula"
-//	database.Save(db, user) // atualiza (ID já existe)
+/**
+ * Save alterna de forma transparente entre Create e Update inspecionando o campo ID de data.
+ *
+ * Se ID == 0, executa uma inserção (Create); caso contrário, executa uma atualização (Update).
+ *
+ * Exemplo:
+ *  user := &User{Name: "Ana"}
+ *  database.Save(db, user) // insere (ID igual a 0)
+ *  user.Name = "Ana Paula"
+ *  database.Save(db, user) // atualiza (ID maior que 0)
+ *
+ * @param db *DB
+ * @param data *T
+ * @return error
+ */
 func Save[T any](db *DB, data *T) error {
 	t := reflect.TypeOf(*data)
 	meta := db.registerModel(t)
@@ -118,9 +138,16 @@ func Save[T any](db *DB, data *T) error {
 	return Update(db, data)
 }
 
-// Delete remove o registro de tipo T cujo id bate com o informado.
-//
-//	err := database.Delete[User](db, 42)
+/**
+ * Delete remove a entrada correspondente ao tipo T cuja chave primária id coincida com o parâmetro informado.
+ *
+ * Exemplo:
+ *  err := database.Delete[User](db, 42)
+ *
+ * @param db *DB
+ * @param id interface{}
+ * @return error
+ */
 func Delete[T any](db *DB, id interface{}) error {
 	var zero T
 	meta := db.registerModel(reflect.TypeOf(zero))
@@ -132,10 +159,16 @@ func Delete[T any](db *DB, id interface{}) error {
 	return nil
 }
 
-// DeleteModel remove o registro representado por data, lendo o ID
-// direto da instância — equivalente ao $model->delete() do Eloquent.
-//
-//	err := database.DeleteModel(db, user)
+/**
+ * DeleteModel remove o registro representado pela instância data, extraindo o identificador diretamente do struct.
+ *
+ * Exemplo:
+ *  err := database.DeleteModel(db, user)
+ *
+ * @param db *DB
+ * @param data *T
+ * @return error
+ */
 func DeleteModel[T any](db *DB, data *T) error {
 	t := reflect.TypeOf(*data)
 	meta := db.registerModel(t)
@@ -149,8 +182,14 @@ func DeleteModel[T any](db *DB, data *T) error {
 	return nil
 }
 
-// fieldValueByColumn localiza o reflect.Value de um campo pelo nome da
-// coluna mapeada (ex: "id"), reaproveitando fieldValue.
+/**
+ * fieldValueByColumn busca e retorna o reflect.Value correspondente ao campo associado à coluna informada.
+ *
+ * @param v reflect.Value
+ * @param meta *modelMeta
+ * @param column string
+ * @return reflect.Value
+ */
 func fieldValueByColumn(v reflect.Value, meta *modelMeta, column string) reflect.Value {
 	for _, f := range meta.fields {
 		if f.column == column {
@@ -160,19 +199,23 @@ func fieldValueByColumn(v reflect.Value, meta *modelMeta, column string) reflect
 	return reflect.Value{}
 }
 
-// --- Update/Delete em massa via QueryBuilder --------------------------
-//
-// Equivalentes a User::where(...)->update([...]) e
-// User::where(...)->delete() do Eloquent: aplicam sobre TODAS as linhas
-// que baterem com os Where()/WhereIn() configurados no builder.
+/* ---------------------------------------------------------------------- */
+/* Update/Delete em massa via QueryBuilder                                */
+/* ---------------------------------------------------------------------- */
 
-// Update roda um UPDATE em massa sobre as linhas que batem com os
-// WHEREs do builder, usando os valores do map (chave = nome da coluna).
-// Retorna quantas linhas foram afetadas.
-//
-//	affected, err := database.Query[User](db).
-//	    Where("active", false).
-//	    Update(map[string]interface{}{"active": true})
+/**
+ * Update executa uma atualização em massa nos registros que satisfazem as condições registradas no QueryBuilder.
+ *
+ * Recebe um mapa de valores onde a chave representa a coluna da tabela. Retorna a quantidade de linhas afetadas.
+ *
+ * Exemplo:
+ *  affected, err := database.Query[User](db).
+ *      Where("active", false).
+ *      Update(map[string]interface{}{"active": true})
+ *
+ * @param values map[string]interface{}
+ * @return (int64, error)
+ */
 func (q *QueryBuilder[T]) Update(values map[string]interface{}) (int64, error) {
 	if len(values) == 0 {
 		return 0, ErrEmptyUpdate
@@ -199,12 +242,18 @@ func (q *QueryBuilder[T]) Update(values map[string]interface{}) (int64, error) {
 	return result.RowsAffected()
 }
 
-// Delete roda um DELETE em massa sobre as linhas que batem com os
-// WHEREs do builder. Retorna quantas linhas foram removidas.
-//
-//	affected, err := database.Query[Session](db).
-//	    Where("expires_at", "<", time.Now()).
-//	    Delete()
+/**
+ * Delete executa a remoção em massa de registros correspondentes aos critérios estabelecidos no QueryBuilder.
+ *
+ * Retorna a quantidade total de linhas removidas do banco de dados.
+ *
+ * Exemplo:
+ *  affected, err := database.Query[Session](db).
+ *      Where("expires_at", "<", time.Now()).
+ *      Delete()
+ *
+ * @return (int64, error)
+ */
 func (q *QueryBuilder[T]) Delete() (int64, error) {
 	whereSQL, args := q.buildWhereAndJoins()
 	whereSQL = strings.Replace(whereSQL, " FROM "+q.meta.tableName, "", 1)

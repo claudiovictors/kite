@@ -1,4 +1,4 @@
-// Package template implementa a engine de views do kite.
+// Package template implementa a engine de views do framework.
 //
 // V1 (implementada): wrapper sobre html/template, com:
 //   - cache de templates parseados (parse único, reuso em cada request)
@@ -23,19 +23,29 @@ import (
 	"sync"
 )
 
-// Engine gerencia o parsing e a renderização de views.
+/**
+ * Engine gerencia o ciclo de vida, compilação, cache em memória e renderização das views.
+ */
 type Engine struct {
-	dir   string // diretório raiz das views, ex: "./views"
-	ext   string // extensão dos arquivos, ex: ".html"
-	Debug bool   // se true, reparseia todas as views a cada Render (hot reload)
+	dir   string // Diretório raiz das views, ex: "./views"
+	ext   string // Extensão dos arquivos de template, ex: ".html"
+	Debug bool   // Quando true, força a re-leitura e compilação de todas as views a cada Render (Hot Reload)
 
 	mu        sync.RWMutex
-	templates map[string]*template.Template // nome da view -> árvore raiz (todas apontam pro mesmo *template.Template)
+	templates map[string]*template.Template // Mapeamento nome da view -> árvore de templates compartilhada
 	funcs     template.FuncMap
 }
 
-// New cria uma engine apontando para o diretório de views informado.
-// ext é a extensão dos arquivos (ex: ".html", ".tmpl").
+/**
+ * New instancia um novo Engine apontando para o diretório de views informado.
+ *
+ * Exemplo:
+ *  engine := template.New("./views", ".html")
+ *
+ * @param dir string caminho do diretório contendo os templates.
+ * @param ext string extensão dos arquivos de template.
+ * @return *Engine
+ */
 func New(dir, ext string) *Engine {
 	return &Engine{
 		dir:       dir,
@@ -45,20 +55,27 @@ func New(dir, ext string) *Engine {
 	}
 }
 
-// AddFunc registra uma função customizada disponível em todas as views
-// (ex: engine.AddFunc("upper", strings.ToUpper)).
+/**
+ * AddFunc registra uma função helper customizada para ficar disponível globalmente nas views.
+ *
+ * Exemplo:
+ *  engine.AddFunc("upper", strings.ToUpper)
+ *
+ * @param name string nome utilizado para invocar a função dentro do template.
+ * @param fn interface{} função a ser registrada.
+ */
 func (e *Engine) AddFunc(name string, fn interface{}) {
 	e.funcs[name] = fn
 }
 
-// Load faz o parsing de todos os templates do diretório configurado.
-// Diferente da versão anterior (que parseava cada arquivo isoladamente
-// com ParseFiles), agora todos os arquivos são associados a uma única
-// árvore de templates nomeados — isso é o que permite {{template "x" .}}
-// e @include referenciarem views de arquivos diferentes.
-//
-// Deve ser chamado uma vez no boot da aplicação (a menos que Debug=true,
-// que reparseia sob demanda a cada Render).
+/**
+ * Load faz a leitura e parsing de todos os arquivos do diretório de views para uma árvore de templates compartilhada.
+ *
+ * Transpila as diretivas estilo Blade em sintaxe nativa antes de realizar o parse no html/template.
+ * Deve ser executado na inicialização da aplicação (boot), exceto quando Debug=true.
+ *
+ * @return error
+ */
 func (e *Engine) Load() error {
 	pattern := filepath.Join(e.dir, "**", "*"+e.ext)
 	matches, err := doubleStarGlob(e.dir, e.ext)
@@ -103,9 +120,20 @@ func (e *Engine) Load() error {
 	return nil
 }
 
-// Render renderiza a view identificada por name (path relativo ao dir,
-// sem extensão, ex: "users/show") com os dados informados, escrevendo
-// o resultado em w.
+/**
+ * Render executa o template indicado pelo nome e escreve o HTML processado no buffer w.
+ *
+ * O nome deve ser o caminho relativo ao diretório de views sem a extensão (ex: "users/show").
+ *
+ * Exemplo:
+ *  var buf bytes.Buffer
+ *  err := engine.Render(&buf, "users/index", data)
+ *
+ * @param w *bytes.Buffer buffer de saída.
+ * @param name string nome da view.
+ * @param data interface{} dados passados para renderização na view.
+ * @return error
+ */
 func (e *Engine) Render(w *bytes.Buffer, name string, data interface{}) error {
 	if e.Debug {
 		if err := e.Load(); err != nil {
@@ -124,8 +152,16 @@ func (e *Engine) Render(w *bytes.Buffer, name string, data interface{}) error {
 	return root.ExecuteTemplate(w, name, data)
 }
 
-// RenderToString é um atalho de Render que retorna a view já renderizada
-// como string, útil para passar direto a res.WithHtml(...).
+/**
+ * RenderToString é um helper utilitário que renderiza a view informada e retorna o resultado como string.
+ *
+ * Exemplo:
+ *  html, err := engine.RenderToString("emails/welcome", user)
+ *
+ * @param name string nome da view.
+ * @param data interface{} dados passados para a view.
+ * @return (string, error)
+ */
 func (e *Engine) RenderToString(name string, data interface{}) (string, error) {
 	var buf bytes.Buffer
 	if err := e.Render(&buf, name, data); err != nil {
@@ -134,14 +170,25 @@ func (e *Engine) RenderToString(name string, data interface{}) (string, error) {
 	return buf.String(), nil
 }
 
+/**
+ * templateName extrai o nome relativo normalizado da view a partir do caminho absoluto/relativo do arquivo no disco.
+ *
+ * @param file string caminho completo do arquivo.
+ * @return string nome da view formatado com barras normais (ex: "layouts/main").
+ */
 func (e *Engine) templateName(file string) string {
 	rel, _ := filepath.Rel(e.dir, file)
 	rel = rel[:len(rel)-len(e.ext)]
 	return filepath.ToSlash(rel)
 }
 
-// doubleStarGlob varre recursivamente o diretório procurando arquivos
-// com a extensão informada (Go não suporta ** nativo em filepath.Glob).
+/**
+ * doubleStarGlob realiza a busca recursiva de arquivos no diretório especificado filtrando pela extensão.
+ *
+ * @param root string diretório raiz de busca.
+ * @param ext string extensão alvo (ex: ".html").
+ * @return ([]string, error) lista com o caminho dos arquivos encontrados.
+ */
 func doubleStarGlob(root, ext string) ([]string, error) {
 	var matches []string
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {

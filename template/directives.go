@@ -2,35 +2,9 @@ package template
 
 import "regexp"
 
-// Este arquivo implementa um pré-processador estilo Blade: converte uma
-// sintaxe mais legível (@if, @foreach, comentários {{-- --}}, @include)
-// para a sintaxe nativa do html/template ({{if}}, {{range}}, {{end}},
-// {{template}}) antes do parse. É transpilação via regex — o
-// lexer/parser dedicado (AST próprio) continua sendo o objetivo da v2
-// do roadmap do Engine.
-//
-// Diretivas suportadas:
-//
-//	{{-- comentário --}}                  -> removido do output
-//	@if(condicao) ... @endif              -> {{if condicao}} ... {{end}}
-//	@if(condicao) ... @else ... @endif    -> {{if condicao}} ... {{else}} ... {{end}}
-//	@elseif(condicao)                     -> {{else if condicao}}
-//	@foreach(.Items) ... @endforeach      -> {{range .Items}} ... {{end}}
-//	@foreach($post in .Posts) ... @endforeach -> {{range $post := .Posts}} ... {{end}}
-//	@include("partials/header")           -> {{template "partials/header" .}}
-//
-// Exemplo de view:
-//
-//	<ul>
-//	{{-- lista de usuários ativos --}}
-//	@foreach($user in .Users)
-//	    @if($user.Active)
-//	        <li>{{ $user.Name }}</li>
-//	    @else
-//	        <li class="inativo">{{ $user.Name }}</li>
-//	    @endif
-//	@endforeach
-//	</ul>
+/**
+ * Expressões regulares compiladas para transpilado de diretivas estilo Blade em sintaxe html/template.
+ */
 var (
 	commentDirective       = regexp.MustCompile(`(?s)\{\{--.*?--\}\}`)
 	ifDirective            = regexp.MustCompile(`@if\s*\((.+?)\)`)
@@ -43,10 +17,20 @@ var (
 	includeDirective       = regexp.MustCompile(`@include\s*\(\s*"(.+?)"\s*\)`)
 )
 
-// compileDirectives roda antes do html/template.Parse, transformando a
-// sintaxe estilo Blade em sintaxe nativa do html/template. A ordem
-// importa: foreachAssignDirective precisa rodar antes de
-// foreachDirective, senão o "in" vira parte da expressão da segunda.
+/**
+ * compileDirectives transpila a sintaxe amigável estilo Blade para a sintaxe nativa do html/template antes do parsing.
+ *
+ * A ordem das substituições é crítica: `foreachAssignDirective` é processada antes de `foreachDirective`
+ * para evitar que a palavra reservada "in" seja capturada erroneamente como parte da expressão.
+ *
+ * Exemplo de transformação:
+ *  @if(condicao)                       -> {{if condicao}}
+ *  @foreach($post in .Posts)           -> {{range $post := .Posts}}
+ *  @include("partials/header")         -> {{template "partials/header" .}}
+ *
+ * @param src string conteúdo bruto do arquivo de template.
+ * @return string conteúdo convertido para sintaxe html/template.
+ */
 func compileDirectives(src string) string {
 	src = commentDirective.ReplaceAllString(src, "")
 	src = ifDirective.ReplaceAllString(src, `{{if $1}}`)
