@@ -25,7 +25,7 @@ const (
 )
 
 const (
-	Version = "1.0.0"
+	Version = "1.0.2"
 	Banner  = FgCyan + `
   _  ___ _       
  | |/ / (_) |_ ___ 
@@ -258,25 +258,43 @@ func printDotsLine(leftText string, rightText string, success bool) {
  * @param args []string - args[0] deve ser o nome do projeto/diretório a criar.
  * @return error
  */
+/**
+ * runNewProject inicializa um novo projeto Kite completo: cria a
+ * estrutura de diretórios (a mesma usada pelos comandos make:*), roda
+ * "go mod init" para que o projeto seja um módulo Go válido desde já,
+ * adiciona o Kite como dependência via "go get" e gera um main.go que
+ * já compila, importando o pacote real do framework.
+ *
+ * BUG CORRIGIDO: a versão anterior gerava um main.go que importava
+ * "%s/core" — um pacote LOCAL que nunca existia dentro do projeto — e
+ * chamava core.NewApp(), uma função que não existe no Kite (o construtor
+ * real é kite.New()). Também não criava go.mod nenhum. Ou seja, todo
+ * projeto gerado por "kite new" nascia sem compilar.
+ *
+ * @param args []string - args[0] é o nome do diretório OU um module path completo (ex.: "github.com/seu-usuario/minha-app").
+ * @return error
+ */
 func runNewProject(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("informe o nome do projeto. Ex: kite new meu-app")
+		return fmt.Errorf("informe o nome do projeto. Ex: kite new minha-app (ou kite new github.com/seu-usuario/minha-app)")
 	}
 
-	projectName := args[0]
-	fmt.Printf("\n%s Criando estrutura do projeto [%s]...\n\n", BadgeInfo, projectName)
+	modulePath := args[0]
+	dirName := lastPathSegment(modulePath)
+
+	fmt.Printf("\n%s Criando estrutura do projeto [%s]...\n\n", BadgeInfo, dirName)
 
 	dirs := []string{
-		projectName,
-		filepath.Join(projectName, "app", "controllers"),
-		filepath.Join(projectName, "app", "models"),
-		filepath.Join(projectName, "app", "middlewares"),
-		filepath.Join(projectName, "app", "requests"),
-		filepath.Join(projectName, "config"),
-		filepath.Join(projectName, "database", "migrations"),
-		filepath.Join(projectName, "database", "seeders"),
-		filepath.Join(projectName, "routes"),
-		filepath.Join(projectName, "views"),
+		dirName,
+		filepath.Join(dirName, "app", "controllers"),
+		filepath.Join(dirName, "app", "models"),
+		filepath.Join(dirName, "app", "middlewares"),
+		filepath.Join(dirName, "app", "requests"),
+		filepath.Join(dirName, "config"),
+		filepath.Join(dirName, "database", "migrations"),
+		filepath.Join(dirName, "database", "seeders"),
+		filepath.Join(dirName, "routes"),
+		filepath.Join(dirName, "views"),
 	}
 
 	for _, dir := range dirs {
@@ -284,37 +302,109 @@ func runNewProject(args []string) error {
 			return fmt.Errorf("falha ao criar diretório %s: %w", dir, err)
 		}
 	}
+	printDotsLine("Estrutura de diretórios", "CRIADA", true)
+
+	if err := initGoModule(dirName, modulePath); err != nil {
+		return err
+	}
+	printDotsLine("go.mod", "CRIADO", true)
+
+	if err := addKiteDependency(dirName); err != nil {
+		// Não é fatal: o projeto já fica utilizável, só falta rodar
+		// "go get github.com/claudiovictors/kite" manualmente depois
+		// (provavelmente por falta de acesso à rede neste momento).
+		printDotsLine("go get github.com/claudiovictors/kite", "PULADO", false)
+		fmt.Printf("  %s%v%s\n", FgYellow, err, Reset)
+	} else {
+		printDotsLine("Dependência do Kite", "ADICIONADA", true)
+	}
 
 	mainContent := fmt.Sprintf(`package main
 
 import (
-	"%s/core"
-	"fmt"
+	"log"
+
+	kite "github.com/claudiovictors/kite/core"
 )
 
 func main() {
-	app := core.NewApp()
+	app := kite.New()
 
-	app.Get("/", func(req core.Request, res core.Response) error {
-		return res.Json(map[string]string{
-			"app":    "%s",
+	app.Get("/", func(req kite.Request, res kite.Response) error {
+		return res.Json(kite.Map{
+			"app":    %q,
 			"status": "online",
 		})
 	})
 
-	fmt.Println("⚡ Servidor Kite rodando na porta :8080")
-	app.Listen(":8080")
+	log.Println("⚡ Servidor Kite rodando na porta :8080")
+	if err := app.Listen(":8080"); err != nil {
+		log.Fatal(err)
+	}
 }
-`, projectName, projectName)
+`, dirName)
 
-	if err := os.WriteFile(filepath.Join(projectName, "main.go"), []byte(mainContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dirName, "main.go"), []byte(mainContent), 0644); err != nil {
 		return fmt.Errorf("falha ao criar main.go: %w", err)
 	}
-
-	printDotsLine("Estrutura base", "CRIADA", true)
 	printDotsLine("Arquivo main.go", "CRIADO", true)
 
-	fmt.Printf("\n%s Projeto criado com sucesso. Digite %scd %s%s para começar.\n\n", BadgeSuccess, Bold, projectName, Reset)
+	fmt.Printf("\n%s Projeto criado com sucesso. Digite %scd %s%s para começar.\n\n", BadgeSuccess, Bold, dirName, Reset)
+	return nil
+}
+
+/**
+ * lastPathSegment devolve o último segmento de um module path (o trecho
+ * depois da última "/"), usado como nome do diretório do projeto. Se
+ * modulePath não tiver "/", devolve o próprio valor sem alterações.
+ *
+ * Exemplo: "github.com/seu-usuario/minha-app" -> "minha-app"
+ *
+ * @param modulePath string
+ * @return string
+ */
+func lastPathSegment(modulePath string) string {
+	trimmed := strings.TrimRight(modulePath, "/")
+	parts := strings.Split(trimmed, "/")
+	return parts[len(parts)-1]
+}
+
+/**
+ * initGoModule roda "go mod init <modulePath>" dentro do diretório do
+ * projeto recém-criado, tornando-o um módulo Go válido imediatamente —
+ * sem isso, o main.go gerado não tinha como compilar (não existia
+ * go.mod nenhum no projeto).
+ *
+ * @param dir string - Diretório do projeto já criado.
+ * @param modulePath string - Module path a gravar no go.mod.
+ * @return error
+ */
+func initGoModule(dir, modulePath string) error {
+	cmd := exec.Command("go", "mod", "init", modulePath)
+	cmd.Dir = dir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("falha ao rodar 'go mod init %s': %w\n%s", modulePath, err, output)
+	}
+	return nil
+}
+
+/**
+ * addKiteDependency roda "go get github.com/claudiovictors/kite" dentro
+ * do diretório do projeto, já que o main.go gerado importa
+ * "github.com/claudiovictors/kite/core" e precisa dessa dependência
+ * registrada no go.mod/go.sum para compilar. Depende de acesso à rede;
+ * se falhar, o erro é devolvido para ser reportado como aviso (não é
+ * motivo para abortar a criação do projeto).
+ *
+ * @param dir string - Diretório do projeto.
+ * @return error
+ */
+func addKiteDependency(dir string) error {
+	cmd := exec.Command("go", "get", "github.com/claudiovictors/kite")
+	cmd.Dir = dir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%w\n%s", err, output)
+	}
 	return nil
 }
 
@@ -418,7 +508,9 @@ type %s struct {
 /**
  * runMakeMigration gera um arquivo de migration em
  * database/migrations/<timestamp>_<nome>.go, prefixado por timestamp para
- * garantir a ordem de execução.
+ * garantir a ordem de execução. O conteúdo gerado é uma database.Migration
+ * de verdade (Up/Down recebendo *database.Schema), pronta para ser
+ * registrada num database.Migrator sem precisar editar a assinatura.
  *
  * @param args []string - args[0] deve ser o nome da tabela/migration (ex.: "create_users_table").
  * @return error
@@ -430,40 +522,40 @@ func runMakeMigration(args []string) error {
 
 	rawName := strings.ToLower(args[0])
 	timestamp := time.Now().Format("20060102150405")
-	fileName := fmt.Sprintf("%s_%s.go", timestamp, rawName)
+	migrationName := fmt.Sprintf("%s_%s", timestamp, rawName)
+	fileName := migrationName + ".go"
 	path := filepath.Join("database", "migrations", fileName)
 
 	structName := strings.ReplaceAll(strings.Title(strings.ReplaceAll(rawName, "_", " ")), " ", "")
+	tableName := strings.TrimPrefix(rawName, "create_")
+	tableName = strings.TrimSuffix(tableName, "_table")
+	if tableName == "" {
+		tableName = rawName
+	}
 
 	content := fmt.Sprintf(`package migrations
 
-import (
-	"database/sql"
-)
+import "github.com/claudiovictors/kite/database"
 
 /**
- * Migration %s
+ * %s cria a tabela "%s". Ajuste as colunas conforme o que sua aplicação
+ * precisa e registre esta migration num database.Migrator no seu main():
+ *
+ *	migrator.Register(migrations.%s)
  */
-type %s struct{}
-
-func (m *%s) Up(db *sql.DB) error {
-	query := `+"`"+`
-	CREATE TABLE IF NOT EXISTS %s (
-		id INT AUTO_INCREMENT PRIMARY KEY,
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-	);
-	`+"`"+`
-	_, err := db.Exec(query)
-	return err
+var %s = database.Migration{
+	Name: %q,
+	Up: func(schema *database.Schema) error {
+		return schema.Create(%q, func(t *database.Blueprint) {
+			t.ID()
+			t.Timestamps()
+		})
+	},
+	Down: func(schema *database.Schema) error {
+		return schema.DropIfExists(%q)
+	},
 }
-
-func (m *%s) Down(db *sql.DB) error {
-	query := `+"`"+`DROP TABLE IF EXISTS %s;`+"`"+`
-	_, err := db.Exec(query)
-	return err
-}
-`, structName, structName, structName, rawName, structName, rawName)
+`, structName, tableName, structName, structName, migrationName, tableName, tableName)
 
 	return generateFileWithArtisanOutput("Migration", path, content)
 }
