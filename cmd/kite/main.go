@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
@@ -10,13 +11,13 @@ import (
 )
 
 const (
-	Reset     = "\033[0m"
-	Bold      = "\033[1m"
-	Dim       = "\033[2m"
-	FgGreen   = "\033[32m"
-	FgYellow  = "\033[33m"
-	FgCyan    = "\033[36m"
-	FgGray    = "\033[90m"
+	Reset    = "\033[0m"
+	Bold     = "\033[1m"
+	Dim      = "\033[2m"
+	FgGreen  = "\033[32m"
+	FgYellow = "\033[33m"
+	FgCyan   = "\033[36m"
+	FgGray   = "\033[90m"
 
 	BadgeInfo    = "\033[44m\033[97m\033[1m INFO \033[0m"
 	BadgeSuccess = "\033[42m\033[30m\033[1m DONE \033[0m"
@@ -33,6 +34,16 @@ const (
  |_|\_|_|_|\__\___|` + Reset + Dim + `  v` + Version + Reset + "\n"
 )
 
+/**
+ * Command representa um comando registrado na CLI: seu nome de invocação,
+ * a linha de uso exibida no help, uma descrição curta e a função executada
+ * quando o comando é chamado.
+ *
+ * @property {string} Name - Nome usado na linha de comando (ex.: "make:model").
+ * @property {string} Usage - Exemplo de uso exibido no help.
+ * @property {string} Description - Descrição curta exibida na lista de comandos.
+ * @property {func(args []string) error} Run - Função executada com os argumentos após o nome do comando.
+ */
 type Command struct {
 	Name        string
 	Usage       string
@@ -42,10 +53,21 @@ type Command struct {
 
 var commands = map[string]Command{}
 
+/**
+ * RegisterCommand adiciona um Command ao índice global de comandos
+ * disponíveis, indexado pelo seu Name.
+ *
+ * @param cmd Command - Comando a ser registrado.
+ */
 func RegisterCommand(cmd Command) {
 	commands[cmd.Name] = cmd
 }
 
+/**
+ * main é o ponto de entrada da CLI: registra todos os comandos, resolve
+ * flags globais (-v/--version, -h/--help), localiza o Command pelo nome
+ * informado em os.Args[1] e executa seu Run com o restante dos argumentos.
+ */
 func main() {
 	registerAllCommands()
 
@@ -78,6 +100,10 @@ func main() {
 	}
 }
 
+/**
+ * registerAllCommands centraliza o registro de todos os comandos
+ * conhecidos pela CLI. Chamado uma única vez, no início de main().
+ */
 func registerAllCommands() {
 	RegisterCommand(Command{
 		Name:        "new",
@@ -115,13 +141,66 @@ func registerAllCommands() {
 	})
 
 	RegisterCommand(Command{
+		Name:        "make:seeder",
+		Usage:       "kite make:seeder <Nome>",
+		Description: "Gera um novo arquivo de seeder de banco de dados.",
+		Run:         runMakeSeeder,
+	})
+
+	RegisterCommand(Command{
+		Name:        "make:request",
+		Usage:       "kite make:request <Nome>",
+		Description: "Gera uma classe de validação de request (FormRequest).",
+		Run:         runMakeRequest,
+	})
+
+	RegisterCommand(Command{
+		Name:        "make:test",
+		Usage:       "kite make:test <Nome>",
+		Description: "Gera um esqueleto de teste HTTP para um controller.",
+		Run:         runMakeTest,
+	})
+
+	RegisterCommand(Command{
 		Name:        "migrate",
 		Usage:       "kite migrate",
-		Description: "Executa todas as migrações de banco pendentes.",
+		Description: "Executa as migrações pendentes da aplicação atual (via database.RunCLI).",
 		Run:         runMigrate,
+	})
+
+	RegisterCommand(Command{
+		Name:        "migrate:status",
+		Usage:       "kite migrate:status",
+		Description: "Mostra o estado (executada/pendente) de cada migração registrada.",
+		Run:         runMigrateStatus,
+	})
+
+	RegisterCommand(Command{
+		Name:        "migrate:rollback",
+		Usage:       "kite migrate:rollback [steps]",
+		Description: "Reverte o último lote de migrações (ou os últimos N lotes).",
+		Run:         runMigrateRollback,
+	})
+
+	RegisterCommand(Command{
+		Name:        "seed",
+		Usage:       "kite seed",
+		Description: "Roda os seeders registrados na aplicação atual (via database.RunCLI).",
+		Run:         runSeed,
+	})
+
+	RegisterCommand(Command{
+		Name:        "serve",
+		Usage:       "kite serve [porta]",
+		Description: "Roda a aplicação atual com 'go run .' (equivalente ao 'go run .' na mão).",
+		Run:         runServe,
 	})
 }
 
+/**
+ * printHelp imprime o banner da CLI, a lista de comandos registrados
+ * (alinhados em colunas via tabwriter) e as opções globais disponíveis.
+ */
 func printHelp() {
 	fmt.Print(Banner)
 	fmt.Printf("\n%sUso:%s\n  kite <comando> [argumentos]\n\n", Bold, Reset)
@@ -138,6 +217,15 @@ func printHelp() {
 	fmt.Printf("  %s-h, --help%s       Exibe este menu de ajuda.\n\n", FgGreen, Reset)
 }
 
+/**
+ * printDotsLine imprime uma linha de status no estilo "tarefa .... OK",
+ * preenchendo o espaço entre leftText e rightText com pontos até atingir
+ * uma largura fixa. A cor de rightText muda conforme success.
+ *
+ * @param leftText string - Texto à esquerda (ex.: nome do arquivo/tarefa).
+ * @param rightText string - Texto à direita (ex.: "CRIADO", "PENDENTE").
+ * @param success bool - Define a cor de rightText (verde ou amarelo).
+ */
 func printDotsLine(leftText string, rightText string, success bool) {
 	totalWidth := 65
 	dotsCount := totalWidth - len(leftText) - len(rightText)
@@ -162,6 +250,14 @@ func printDotsLine(leftText string, rightText string, success bool) {
 // Implementação dos Comandos
 // ----------------------------------------------------------------------
 
+/**
+ * runNewProject cria a estrutura de diretórios de um novo projeto Kite
+ * (controllers, models, middlewares, requests, migrations, seeders,
+ * routes, views) e gera um main.go inicial já com uma rota de exemplo.
+ *
+ * @param args []string - args[0] deve ser o nome do projeto/diretório a criar.
+ * @return error
+ */
 func runNewProject(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("informe o nome do projeto. Ex: kite new meu-app")
@@ -175,9 +271,12 @@ func runNewProject(args []string) error {
 		filepath.Join(projectName, "app", "controllers"),
 		filepath.Join(projectName, "app", "models"),
 		filepath.Join(projectName, "app", "middlewares"),
+		filepath.Join(projectName, "app", "requests"),
 		filepath.Join(projectName, "config"),
 		filepath.Join(projectName, "database", "migrations"),
+		filepath.Join(projectName, "database", "seeders"),
 		filepath.Join(projectName, "routes"),
+		filepath.Join(projectName, "views"),
 	}
 
 	for _, dir := range dirs {
@@ -215,10 +314,17 @@ func main() {
 	printDotsLine("Estrutura base", "CRIADA", true)
 	printDotsLine("Arquivo main.go", "CRIADO", true)
 
-	fmt.Printf("\n%s Projeto criado com sucesso. Digite %scd %s%s para iniciar.\n\n", BadgeSuccess, Bold, projectName, Reset)
+	fmt.Printf("\n%s Projeto criado com sucesso. Digite %scd %s%s para começar.\n\n", BadgeSuccess, Bold, projectName, Reset)
 	return nil
 }
 
+/**
+ * runMakeController gera um novo arquivo de controller em
+ * app/controllers/<nome>_controller.go, com um método Index de exemplo.
+ *
+ * @param args []string - args[0] deve ser o nome do controller (ex.: "User").
+ * @return error
+ */
 func runMakeController(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("informe o nome do controller. Ex: kite make:controller User")
@@ -244,6 +350,14 @@ func (c *%sController) Index(req core.Request, res core.Response) error {
 	return generateFileWithArtisanOutput("Controller", path, content)
 }
 
+/**
+ * runMakeMiddleware gera um novo arquivo de middleware em
+ * app/middlewares/<nome>.go, já no formato core.MiddlewareFunc esperado
+ * por app.Use/Route.Middleware.
+ *
+ * @param args []string - args[0] deve ser o nome do middleware (ex.: "Auth").
+ * @return error
+ */
 func runMakeMiddleware(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("informe o nome do middleware. Ex: kite make:middleware Auth")
@@ -271,6 +385,13 @@ func %s() core.MiddlewareFunc {
 	return generateFileWithArtisanOutput("Middleware", path, content)
 }
 
+/**
+ * runMakeModel gera um novo arquivo de model em app/models/<nome>.go,
+ * com os campos ID, CreatedAt e UpdatedAt já mapeados via tags db/json.
+ *
+ * @param args []string - args[0] deve ser o nome da model (ex.: "Product").
+ * @return error
+ */
 func runMakeModel(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("informe o nome da model. Ex: kite make:model Product")
@@ -285,17 +406,22 @@ func runMakeModel(args []string) error {
 import "time"
 
 type %s struct {
-	ID        uint      ` + "`json:\"id\" db:\"id\"`" + `
-	CreatedAt time.Time ` + "`json:\"created_at\" db:\"created_at\"`" + `
-	UpdatedAt time.Time ` + "`json:\"updated_at\" db:\"updated_at\"`" + `
+	ID        uint      `+"`json:\"id\" db:\"id\"`"+`
+	CreatedAt time.Time `+"`json:\"created_at\" db:\"created_at\"`"+`
+	UpdatedAt time.Time `+"`json:\"updated_at\" db:\"updated_at\"`"+`
 }
-`, name, name)
+`, name)
 
 	return generateFileWithArtisanOutput("Model", path, content)
 }
 
 /**
- * Gera um arquivo de migration no formato timestamp_create_tableName_table.go.
+ * runMakeMigration gera um arquivo de migration em
+ * database/migrations/<timestamp>_<nome>.go, prefixado por timestamp para
+ * garantir a ordem de execução.
+ *
+ * @param args []string - args[0] deve ser o nome da tabela/migration (ex.: "create_users_table").
+ * @return error
  */
 func runMakeMigration(args []string) error {
 	if len(args) < 1 {
@@ -321,19 +447,19 @@ import (
 type %s struct{}
 
 func (m *%s) Up(db *sql.DB) error {
-	query := ` + "`" + `
+	query := `+"`"+`
 	CREATE TABLE IF NOT EXISTS %s (
 		id INT AUTO_INCREMENT PRIMARY KEY,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 	);
-	` + "`" + `
+	`+"`"+`
 	_, err := db.Exec(query)
 	return err
 }
 
 func (m *%s) Down(db *sql.DB) error {
-	query := ` + "`" + `DROP TABLE IF EXISTS %s;` + "`" + `
+	query := `+"`"+`DROP TABLE IF EXISTS %s;`+"`"+`
 	_, err := db.Exec(query)
 	return err
 }
@@ -343,29 +469,275 @@ func (m *%s) Down(db *sql.DB) error {
 }
 
 /**
- * Simula a execução das migrações pendentes e exibe a saída no estilo Artisan.
+ * runMakeSeeder gera um arquivo de seeder em
+ * database/seeders/<nome>_seeder.go, já implementando database.Seeder
+ * (método Run(db *database.DB) error) — pronto para ser registrado num
+ * database.SeederRunner.
+ *
+ * @param args []string - args[0] deve ser o nome do seeder (ex.: "Users").
+ * @return error
+ */
+func runMakeSeeder(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("informe o nome do seeder. Ex: kite make:seeder Users")
+	}
+
+	name := strings.Title(strings.ToLower(args[0]))
+	fileName := strings.ToLower(name) + "_seeder.go"
+	path := filepath.Join("database", "seeders", fileName)
+
+	content := fmt.Sprintf(`package seeders
+
+import (
+	"kite/database"
+)
+
+/**
+ * %sSeeder popula a tabela correspondente com dados iniciais/de teste.
+ * Registre-o num database.SeederRunner e chame seeder.Run() (via
+ * database.RunCLI ou manualmente no seu main()).
+ */
+type %sSeeder struct{}
+
+func (s *%sSeeder) Run(db *database.DB) error {
+	// Exemplo:
+	//
+	// user := &models.User{Name: "Admin", Email: "admin@example.com"}
+	// return database.Create(db, user)
+
+	return nil
+}
+`, name, name, name)
+
+	return generateFileWithArtisanOutput("Seeder", path, content)
+}
+
+/**
+ * runMakeRequest gera um arquivo de validação de request em
+ * app/requests/<nome>_request.go, no estilo FormRequest do Laravel,
+ * usando o pacote validation para as regras.
+ *
+ * @param args []string - args[0] deve ser o nome do request (ex.: "CreateUser").
+ * @return error
+ */
+func runMakeRequest(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("informe o nome do request. Ex: kite make:request CreateUser")
+	}
+
+	name := strings.Title(strings.ToLower(args[0]))
+	fileName := strings.ToLower(name) + "_request.go"
+	path := filepath.Join("app", "requests", fileName)
+
+	content := fmt.Sprintf(`package requests
+
+import (
+	"kite/core"
+	"kite/validation"
+)
+
+/**
+ * %sRequest concentra as regras de validação de entrada para essa ação,
+ * no estilo do FormRequest do Laravel. Chame Validate(req) no início do
+ * handler e devolva 422 se Fails() for true.
+ */
+type %sRequest struct{}
+
+/**
+ * Rules define as regras de validação por campo. Ajuste conforme os
+ * campos reais esperados pela sua rota.
+ *
+ * @return map[string]string
+ */
+func (r *%sRequest) Rules() map[string]string {
+	return map[string]string{
+		// "nome":  "required|min:3",
+		// "email": "required|email",
+	}
+}
+
+/**
+ * Validate roda o validador sobre os dados de entrada da requisição
+ * (JSON, formulário ou query string, via req.All()).
+ *
+ * @param req core.Request
+ * @return *validation.Validator
+ */
+func (r *%sRequest) Validate(req core.Request) *validation.Validator {
+	return validation.Make(req.All(), r.Rules())
+}
+`, name, name, name, name)
+
+	return generateFileWithArtisanOutput("Request", path, content)
+}
+
+/**
+ * runMakeTest gera um esqueleto de teste HTTP para um controller em
+ * app/controllers/<nome>_test.go, usando httptest para simular a
+ * requisição sem precisar subir um servidor real.
+ *
+ * @param args []string - args[0] deve ser o nome do controller (ex.: "User").
+ * @return error
+ */
+func runMakeTest(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("informe o nome do teste. Ex: kite make:test User")
+	}
+
+	name := strings.Title(strings.ToLower(args[0]))
+	fileName := strings.ToLower(name) + "_test.go"
+	path := filepath.Join("app", "controllers", fileName)
+	route := strings.ToLower(name)
+
+	content := fmt.Sprintf(`package controllers
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"kite/core"
+)
+
+/**
+ * TestKite%sIndex é um esqueleto de teste HTTP para o controller %s.
+ * Ajuste a rota, o método e as asserções conforme o handler real.
+ */
+func TestKite%sIndex(t *testing.T) {
+	app := core.NewApp()
+	controller := &%sController{}
+	app.Get("/%s", controller.Index)
+
+	req := httptest.NewRequest(http.MethodGet, "/%s", nil)
+	rec := httptest.NewRecorder()
+
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("esperava status 200, recebeu %%d", rec.Code)
+	}
+}
+`, name, name, name, name, route, route)
+
+	return generateFileWithArtisanOutput("Test", path, content)
+}
+
+/**
+ * runMigrate executa as migrações pendentes da aplicação atual. A CLI
+ * global não tem acesso à conexão do banco nem às Migration registradas em
+ * memória — só o binário da sua aplicação tem. Por isso este comando só
+ * repassa a chamada via runAppCommand, que roda "go run . migrate" no
+ * diretório atual; a execução de verdade acontece dentro do seu main(),
+ * através de database.RunCLI (veja kite/database/cli.go).
+ *
+ * @param args []string
+ * @return error
  */
 func runMigrate(args []string) error {
-	migrationsDir := filepath.Join("database", "migrations")
-	files, err := os.ReadDir(migrationsDir)
-	if err != nil || len(files) == 0 {
-		fmt.Printf("\n%s Nenhuma migração pendente encontrada em [%s].\n\n", BadgeInfo, migrationsDir)
-		return nil
+	return runAppCommand("migrate", args)
+}
+
+/**
+ * runMigrateStatus mostra o estado (executada/pendente) de cada migração
+ * registrada na aplicação atual. Veja runMigrate para o porquê do repasse.
+ *
+ * @param args []string
+ * @return error
+ */
+func runMigrateStatus(args []string) error {
+	return runAppCommand("migrate:status", args)
+}
+
+/**
+ * runMigrateRollback reverte o último lote de migrações da aplicação atual
+ * (ou os últimos N lotes, se um número for passado como argumento). Veja
+ * runMigrate para o porquê do repasse.
+ *
+ * @param args []string
+ * @return error
+ */
+func runMigrateRollback(args []string) error {
+	return runAppCommand("migrate:rollback", args)
+}
+
+/**
+ * runSeed executa os seeders registrados na aplicação atual, através de
+ * database.SeederRunner. Veja runMigrate para o porquê do repasse.
+ *
+ * @param args []string
+ * @return error
+ */
+func runSeed(args []string) error {
+	return runAppCommand("seed", args)
+}
+
+/**
+ * runAppCommand roda a aplicação atual com "go run . <command> [args...]",
+ * repassando stdout/stderr/stdin diretamente para o terminal. A aplicação
+ * precisa chamar database.RunCLI(os.Args[1:], migrator, seeder) no início
+ * do seu main() para que o comando seja reconhecido e executado de verdade
+ * — sem isso, "go run ." simplesmente sobe o servidor normalmente e ignora
+ * o argumento extra.
+ *
+ * @param command string - Nome do comando reconhecido por database.RunCLI.
+ * @param args []string - Argumentos extras (ex.: número de steps do rollback).
+ * @return error
+ */
+func runAppCommand(command string, args []string) error {
+	fmt.Printf("\n%s Repassando para a aplicação: go run . %s\n\n", BadgeInfo, strings.TrimSpace(command+" "+strings.Join(args, " ")))
+
+	cmdArgs := append([]string{"run", "."}, append([]string{command}, args...)...)
+	cmd := exec.Command("go", cmdArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("falha ao executar %q na aplicação: %w (você chamou database.RunCLI(os.Args[1:], ...) no seu main()?)", command, err)
 	}
-
-	fmt.Printf("\n%s Executando migrações no banco de dados...\n\n", BadgeInfo)
-
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".go") {
-			migrationName := strings.TrimSuffix(file.Name(), ".go")
-			printDotsLine(migrationName, "RAN", true)
-		}
-	}
-
-	fmt.Printf("\n%s Todas as migrações foram executadas com sucesso.\n\n", BadgeSuccess)
 	return nil
 }
 
+/**
+ * runServe roda a aplicação atual com "go run .", repassando
+ * stdout/stderr/stdin diretamente para o terminal (equivalente a rodar o
+ * comando na mão, mas com uma saída de boot consistente com o resto da
+ * CLI). Um argumento opcional de porta é exposto via variável de
+ * ambiente PORT, caso sua aplicação leia kite.Env("PORT", "8080") no boot.
+ *
+ * @param args []string - args[0], se presente, define a porta (via env PORT).
+ * @return error
+ */
+func runServe(args []string) error {
+	port := "8080"
+	if len(args) > 0 {
+		port = args[0]
+	}
+
+	fmt.Printf("\n%s Iniciando aplicação com 'go run .' (PORT=%s)...\n\n", BadgeInfo, port)
+
+	cmd := exec.Command("go", "run", ".")
+	cmd.Env = append(os.Environ(), "PORT="+port)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("falha ao rodar a aplicação: %w", err)
+	}
+	return nil
+}
+
+/**
+ * generateFileWithArtisanOutput cria os diretórios necessários e grava um
+ * novo arquivo com o conteúdo informado, recusando sobrescrever um
+ * arquivo já existente, e imprime uma saída de status no estilo Artisan.
+ *
+ * @param resourceType string - Nome exibido do tipo de recurso (ex.: "Controller").
+ * @param path string - Caminho completo do arquivo a criar.
+ * @param content string - Conteúdo a ser escrito no arquivo.
+ * @return error
+ */
 func generateFileWithArtisanOutput(resourceType string, path string, content string) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {

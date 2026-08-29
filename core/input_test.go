@@ -766,7 +766,7 @@ func TestResponseStatus(t *testing.T) {
 func TestResponseRedirect(t *testing.T) {
 	app := New()
 	app.Get("/old", func(req Request, res Response) error {
-		return res.Redirect("/new")
+		return res.Redirect().To("/new")
 	})
 
 	r := httptest.NewRequest(http.MethodGet, "/old", nil)
