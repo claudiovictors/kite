@@ -21,7 +21,8 @@ com diretivas ao estilo Blade.
 
 - Zero dependências externas: construído inteiramente sobre a
   standard library do Go (`net/http`, `database/sql`, `html/template`,
-  `crypto/hmac`, `crypto/rand`).
+  `crypto/hmac`, `crypto/rand`, `reflect`).
+- Documentação interativa integrada com **Scalar** (estilo FastAPI): geração automática de **OpenAPI 3.1** e UI moderna em `/docs` sem configurações extras.
 - API fluente e encadeável, próxima da sintaxe do Express e do
   Eloquent.
 - Router baseado em árvore de segmentos, com suporte a parâmetros
@@ -62,6 +63,50 @@ func main() {
 	app.Listen(":3000")
 }
 ```
+
+## Documentação Interativa com Scalar (Estilo FastAPI)
+
+O Kite gera automaticamente a especificação **OpenAPI 3.1** e serve a interface interativa do **Scalar** em `/docs`:
+
+```go
+type CreateUserDTO struct {
+	Name  string `json:"name" doc:"Nome completo" example:"Carlos Silva" validate:"required"`
+	Email string `json:"email" doc:"E-mail" format:"email" example:"carlos@email.com" validate:"required"`
+}
+
+type UserResponse struct {
+	ID    string `json:"id" example:"usr_123"`
+	Name  string `json:"name" example:"Carlos Silva"`
+	Email string `json:"email" example:"carlos@email.com"`
+}
+
+func main() {
+	app := kite.New(kite.Config{
+		Title:   "Minha API",
+		Version: "1.0.0",
+		DocsURL: "/docs", // Scalar UI (padrão: /docs)
+	})
+
+	app.Post("/users", func(req kite.Request, res kite.Response) error {
+		var dto CreateUserDTO
+		if err := req.BindJson(&dto); err != nil {
+			return res.Status(400).Json(kite.Map{"error": err.Error()})
+		}
+		return res.Status(201).Json(UserResponse{ID: "1", Name: dto.Name, Email: dto.Email})
+	}).
+		Summary("Cadastrar usuário").
+		Tags("Usuários").
+		Body(CreateUserDTO{}).
+		Response(201, UserResponse{})
+
+	app.Listen(":3000")
+}
+```
+
+Ao rodar a aplicação:
+- Acesse `http://localhost:3000/docs` para ver a interface interativa do **Scalar**.
+- Acesse `http://localhost:3000/openapi.json` para obter o schema OpenAPI 3.1.
+
 
 ## Estrutura do projeto
 
