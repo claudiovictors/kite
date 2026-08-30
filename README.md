@@ -107,6 +107,18 @@ Ao rodar a aplicação:
 - Acesse `http://localhost:3000/docs` para ver a interface interativa do **Scalar**.
 - Acesse `http://localhost:3000/openapi.json` para obter o schema OpenAPI 3.1.
 
+### Personalizando o Visual (Tema e Layout)
+
+Por padrão, o Kite adota o layout `classic` do Scalar, pois ele se assemelha mais à interface tradicional do Swagger. Se preferir um visual mais moderno e focado em clientes de API, basta alterar a configuração `ScalarLayout` para `"modern"`. Você também pode alterar o tema de cores padrão através de `ScalarTheme`.
+
+```go
+	app := kite.New(kite.Config{
+		Title:        "Minha API",
+		Version:      "1.0.0",
+		ScalarLayout: "modern",         // "classic" (padrão) ou "modern"
+		ScalarTheme:  kite.ThemePurple, // diversas opções de temas disponíveis
+	})
+```
 
 ## Estrutura do projeto
 

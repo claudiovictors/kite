@@ -48,12 +48,12 @@ func RenderScalarHTML(cfg ScalarConfig) (string, error) {
 
 	theme := cfg.Theme
 	if theme == "" {
-		theme = ThemePurple
+		theme = ThemeDefault
 	}
 
 	layout := cfg.Layout
 	if layout == "" {
-		layout = "modern"
+		layout = "classic"
 	}
 
 	scalarOptions := map[string]any{

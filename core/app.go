@@ -83,10 +83,10 @@ func New(configs ...Config) *App {
 		cfg.OpenAPIURL = "/openapi.json"
 	}
 	if cfg.ScalarTheme == "" {
-		cfg.ScalarTheme = ThemePurple
+		cfg.ScalarTheme = ThemeDefault
 	}
 	if cfg.ScalarLayout == "" {
-		cfg.ScalarLayout = "modern"
+		cfg.ScalarLayout = "classic"
 	}
 
 	app := &App{
