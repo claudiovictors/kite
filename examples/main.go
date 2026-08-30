@@ -22,10 +22,11 @@ type UserResponse struct {
 func main() {
 	// Cria a aplicação Kite com OpenAPI 3.1 e Scalar embutidos
 	app := kite.New(kite.Config{
-		Title:       "Kite Store API",
-		Version:     "1.0.0",
-		Description: "Demonstração de API em Go com documentação interativa via Scalar estilo FastAPI.",
-		ScalarTheme: kite.ThemePurple,
+		Title:        "Kite Store API",
+		Version:      "1.0.0",
+		Description:  "Demonstração de API em Go com documentação interativa via Scalar estilo FastAPI.",
+		ScalarTheme:  kite.ThemeDefault,
+		ScalarLayout: "classic",
 	})
 
 	// Rota básica

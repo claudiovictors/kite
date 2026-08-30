@@ -49,11 +49,10 @@ type Config struct {
  * error/not-found handlers.
  */
 type App struct {
-	config         Config
-	router         *Router
-	middlewares    []MiddlewareFunc
-	views          *template.Engine
-	docsRegistered bool
+	config      Config
+	router      *Router
+	middlewares []MiddlewareFunc
+	views       *template.Engine
 
 	NotFoundHandler HandlerFunc
 	ErrorHandler    func(req Request, res Response, err error)
@@ -96,6 +95,15 @@ func New(configs ...Config) *App {
 	}
 	app.NotFoundHandler = defaultNotFoundHandler
 	app.ErrorHandler = defaultErrorHandler
+
+	// Documentation routes are registered here, inside New(), synchronously
+	// and before any request is served — eliminating the race condition that
+	// would occur if registration happened inside ServeHTTP, which is called
+	// concurrently by multiple goroutines.
+	if !cfg.DisableDocs {
+		app.registerDocs()
+	}
+
 	return app
 }
 
@@ -316,38 +324,26 @@ func (a *App) Group(prefix string) *RouteGroup {
 }
 
 /**
- * registerDocs registers automatic OpenAPI spec and Scalar documentation routes if enabled.
+ * registerDocs registers the built-in OpenAPI spec and Scalar UI routes.
+ * Called synchronously by New() — never inside ServeHTTP — ensuring routes
+ * are added exactly once before any request is served, with no need for
+ * a mutex or sync.Once.
  */
 func (a *App) registerDocs() {
-	if a.docsRegistered || a.config.DisableDocs {
-		return
-	}
-	a.docsRegistered = true
-
 	openAPIURL := a.config.OpenAPIURL
-	if openAPIURL == "" {
-		openAPIURL = "/openapi.json"
-	}
 	docsURL := a.config.DocsURL
-	if docsURL == "" {
-		docsURL = "/docs"
-	}
 
-	// Route that serves OpenAPI 3.1 JSON
+	// Route that serves the OpenAPI 3.1 specification as JSON
 	a.Get(openAPIURL, func(req Request, res Response) error {
 		gen := NewOpenAPIGenerator(a.config)
 		spec := gen.Generate(a.router.Routes())
 		return res.Json(spec)
 	}).Hidden()
 
-	// Route that serves Scalar API Reference UI
+	// Route that serves the Scalar API Reference interactive UI
 	a.Get(docsURL, func(req Request, res Response) error {
-		title := a.config.Title
-		if title == "" {
-			title = "API Reference"
-		}
 		html, err := RenderScalarHTML(ScalarConfig{
-			Title:   title + " - API Reference",
+			Title:   a.config.Title + " - API Reference",
 			SpecURL: openAPIURL,
 			Theme:   a.config.ScalarTheme,
 			Layout:  a.config.ScalarLayout,
@@ -368,8 +364,6 @@ func (a *App) registerDocs() {
  * @param {*http.Request} r - Native HTTP request pointer.
  */
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	a.registerDocs()
-
 	handler, params, ok := a.router.Match(r.Method, r.URL.Path)
 	req := Request{Request: r, Params: params}
 	res := newResponse(w, r, a.views)
