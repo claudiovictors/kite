@@ -35,6 +35,7 @@ type node struct {
 	method      string
 	fullPath    string
 	name        string
+	doc         *RouteDoc
 }
 
 /**
@@ -240,4 +241,27 @@ func (r *Router) URLFor(name string, params map[string]string) (string, error) {
 		return path + "?" + extra.Encode(), nil
 	}
 	return path, nil
+}
+
+/**
+ * Routes retorna todos os nós de rota registrados no Router com seus handlers e metadados.
+ */
+func (r *Router) Routes() []*node {
+	var list []*node
+	for _, root := range r.trees {
+		collectNodes(root, &list)
+	}
+	return list
+}
+
+func collectNodes(n *node, list *[]*node) {
+	if n == nil {
+		return
+	}
+	if n.handler != nil && n.fullPath != "" {
+		*list = append(*list, n)
+	}
+	for _, child := range n.children {
+		collectNodes(child, list)
+	}
 }

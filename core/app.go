@@ -20,11 +20,36 @@ type ErrorResponse struct {
 }
 
 /**
+ * ServerConfig defines metadata for OpenAPI server endpoints.
+ */
+type ServerConfig struct {
+	URL         string `json:"url"`
+	Description string `json:"description,omitempty"`
+}
+
+/**
+ * Config encapsulates configuration parameters for the Kite application,
+ * including OpenAPI specifications and Scalar UI presentation.
+ */
+type Config struct {
+	Title        string         `json:"title,omitempty"`
+	Version      string         `json:"version,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	DocsURL      string         `json:"docsUrl,omitempty"`
+	OpenAPIURL   string         `json:"openApiUrl,omitempty"`
+	ScalarTheme  ScalarTheme    `json:"scalarTheme,omitempty"`
+	ScalarLayout string         `json:"scalarLayout,omitempty"`
+	DisableDocs  bool           `json:"disableDocs,omitempty"`
+	Servers      []ServerConfig `json:"servers,omitempty"`
+}
+
+/**
  * App represents the core engine of the kite package, managing the router,
  * global middlewares, the optional view engine, and default lifecycle
  * error/not-found handlers.
  */
 type App struct {
+	config      Config
 	router      *Router
 	middlewares []MiddlewareFunc
 	views       *template.Engine
@@ -37,12 +62,48 @@ type App struct {
  * New instantiates and returns a new core App application instance
  * with a pre-configured router and default handlers.
  *
+ * @param {...Config} configs - Optional application and OpenAPI/Scalar configurations.
  * @return {*App} Pointer to the newly created App instance.
  */
-func New() *App {
-	app := &App{router: newRouter()}
+func New(configs ...Config) *App {
+	var cfg Config
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
+	if cfg.Title == "" {
+		cfg.Title = "Kite API"
+	}
+	if cfg.Version == "" {
+		cfg.Version = "1.0.0"
+	}
+	if cfg.DocsURL == "" {
+		cfg.DocsURL = "/docs"
+	}
+	if cfg.OpenAPIURL == "" {
+		cfg.OpenAPIURL = "/openapi.json"
+	}
+	if cfg.ScalarTheme == "" {
+		cfg.ScalarTheme = ThemeDefault
+	}
+	if cfg.ScalarLayout == "" {
+		cfg.ScalarLayout = "classic"
+	}
+
+	app := &App{
+		config: cfg,
+		router: newRouter(),
+	}
 	app.NotFoundHandler = defaultNotFoundHandler
 	app.ErrorHandler = defaultErrorHandler
+
+	// Documentation routes are registered here, inside New(), synchronously
+	// and before any request is served — eliminating the race condition that
+	// would occur if registration happened inside ServeHTTP, which is called
+	// concurrently by multiple goroutines.
+	if !cfg.DisableDocs {
+		app.registerDocs()
+	}
+
 	return app
 }
 
@@ -263,6 +324,38 @@ func (a *App) Group(prefix string) *RouteGroup {
 }
 
 /**
+ * registerDocs registers the built-in OpenAPI spec and Scalar UI routes.
+ * Called synchronously by New() — never inside ServeHTTP — ensuring routes
+ * are added exactly once before any request is served, with no need for
+ * a mutex or sync.Once.
+ */
+func (a *App) registerDocs() {
+	openAPIURL := a.config.OpenAPIURL
+	docsURL := a.config.DocsURL
+
+	// Route that serves the OpenAPI 3.1 specification as JSON
+	a.Get(openAPIURL, func(req Request, res Response) error {
+		gen := NewOpenAPIGenerator(a.config)
+		spec := gen.Generate(a.router.Routes())
+		return res.Json(spec)
+	}).Hidden()
+
+	// Route that serves the Scalar API Reference interactive UI
+	a.Get(docsURL, func(req Request, res Response) error {
+		html, err := RenderScalarHTML(ScalarConfig{
+			Title:   a.config.Title + " - API Reference",
+			SpecURL: openAPIURL,
+			Theme:   a.config.ScalarTheme,
+			Layout:  a.config.ScalarLayout,
+		})
+		if err != nil {
+			return res.Status(http.StatusInternalServerError).Send("Failed to render documentation")
+		}
+		return res.WithHtml(html)
+	}).Hidden()
+}
+
+/**
  * ServeHTTP satisfies the standard net/http Handler interface for dispatching requests.
  * Repassa o engine de views configurado (a.views, pode ser nil) para a Response
  * gerada, permitindo que res.Render funcione dentro do handler.
@@ -465,5 +558,131 @@ func (rt *Route) Middleware(mw ...MiddlewareFunc) *Route {
 func (rt *Route) Name(name string) *Route {
 	rt.node.name = name
 	rt.router.setName(name, rt.node)
+	return rt
+}
+
+func (rt *Route) ensureDoc() *RouteDoc {
+	if rt.node.doc == nil {
+		rt.node.doc = &RouteDoc{
+			Responses: make(map[int]*ResponseDoc),
+		}
+	}
+	if rt.node.doc.Responses == nil {
+		rt.node.doc.Responses = make(map[int]*ResponseDoc)
+	}
+	return rt.node.doc
+}
+
+/**
+ * Summary define um resumo curto da operação na documentação OpenAPI.
+ */
+func (rt *Route) Summary(summary string) *Route {
+	rt.ensureDoc().Summary = summary
+	return rt
+}
+
+/**
+ * Description define uma descrição detalhada da operação na documentação OpenAPI.
+ */
+func (rt *Route) Description(desc string) *Route {
+	rt.ensureDoc().Description = desc
+	return rt
+}
+
+/**
+ * Tags categoriza a rota em tags/grupos na documentação OpenAPI e no Scalar.
+ */
+func (rt *Route) Tags(tags ...string) *Route {
+	rt.ensureDoc().Tags = append(rt.ensureDoc().Tags, tags...)
+	return rt
+}
+
+/**
+ * Deprecated marca a rota como obsoleta/descontinuada na documentação.
+ */
+func (rt *Route) Deprecated() *Route {
+	rt.ensureDoc().Deprecated = true
+	return rt
+}
+
+/**
+ * Hidden oculta a rota da documentação OpenAPI e da interface do Scalar.
+ */
+func (rt *Route) Hidden() *Route {
+	rt.ensureDoc().Hidden = true
+	return rt
+}
+
+/**
+ * Body define a estrutura e schema do corpo esperado na requisição HTTP (application/json).
+ */
+func (rt *Route) Body(model any, description ...string) *Route {
+	desc := ""
+	if len(description) > 0 {
+		desc = description[0]
+	}
+	rt.ensureDoc().RequestBody = &BodyDoc{
+		Model:       model,
+		Description: desc,
+		Required:    true,
+	}
+	return rt
+}
+
+/**
+ * Query documenta um parâmetro de query string para a rota.
+ */
+func (rt *Route) Query(name string, model any, description ...string) *Route {
+	desc := ""
+	if len(description) > 0 {
+		desc = description[0]
+	}
+	rt.ensureDoc().Parameters = append(rt.ensureDoc().Parameters, ParamDoc{
+		In:          "query",
+		Name:        name,
+		Model:       model,
+		Description: desc,
+	})
+	return rt
+}
+
+/**
+ * Header documenta um cabeçalho HTTP esperado na requisição da rota.
+ */
+func (rt *Route) Header(name string, model any, description ...string) *Route {
+	desc := ""
+	if len(description) > 0 {
+		desc = description[0]
+	}
+	rt.ensureDoc().Parameters = append(rt.ensureDoc().Parameters, ParamDoc{
+		In:          "header",
+		Name:        name,
+		Model:       model,
+		Description: desc,
+	})
+	return rt
+}
+
+/**
+ * Response documenta uma resposta com código HTTP e estrutura de dados retornada.
+ */
+func (rt *Route) Response(statusCode int, model any, description ...string) *Route {
+	desc := ""
+	if len(description) > 0 {
+		desc = description[0]
+	}
+	rt.ensureDoc().Responses[statusCode] = &ResponseDoc{
+		Model:       model,
+		Description: desc,
+	}
+	return rt
+}
+
+/**
+ * Doc substitui todos os metadados de documentação da rota por um RouteDoc customizado.
+ */
+func (rt *Route) Doc(doc RouteDoc) *Route {
+	current := rt.ensureDoc()
+	*current = doc
 	return rt
 }
