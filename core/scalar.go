@@ -9,16 +9,20 @@ import (
 type ScalarTheme string
 
 const (
-	ThemeDefault   ScalarTheme = "default"
-	ThemeAlternate ScalarTheme = "alternate"
-	ThemeMoon      ScalarTheme = "moon"
-	ThemePurple    ScalarTheme = "purple"
-	ThemeSolarized ScalarTheme = "solarized"
-	ThemeSaturn    ScalarTheme = "saturn"
-	ThemeKepler    ScalarTheme = "kepler"
-	ThemeMars      ScalarTheme = "mars"
-	ThemeDeepSpace ScalarTheme = "deepSpace"
-	ThemeNone      ScalarTheme = "none"
+	ThemeDefault    ScalarTheme = "default"
+	ThemeAlternate  ScalarTheme = "alternate"
+	ThemeMoon       ScalarTheme = "moon"
+	ThemePurple     ScalarTheme = "purple"
+	ThemeSolarized  ScalarTheme = "solarized"
+	ThemeBluePlanet ScalarTheme = "bluePlanet"
+	ThemeDeepSpace  ScalarTheme = "deepSpace"
+	ThemeSaturn     ScalarTheme = "saturn"
+	ThemeKepler     ScalarTheme = "kepler"
+	ThemeElysiaJS   ScalarTheme = "elysiajs"
+	ThemeFastify    ScalarTheme = "fastify"
+	ThemeMars       ScalarTheme = "mars"
+	ThemeLaserwave  ScalarTheme = "laserwave"
+	ThemeNone       ScalarTheme = "none"
 )
 
 /**
@@ -48,7 +52,7 @@ func RenderScalarHTML(cfg ScalarConfig) (string, error) {
 
 	theme := cfg.Theme
 	if theme == "" {
-		theme = ThemeDefault
+		theme = ThemeLaserwave
 	}
 
 	layout := cfg.Layout

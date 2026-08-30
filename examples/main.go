@@ -25,8 +25,6 @@ func main() {
 		Title:        "Kite Store API",
 		Version:      "1.0.0",
 		Description:  "Demonstração de API em Go com documentação interativa via Scalar estilo FastAPI.",
-		ScalarTheme:  kite.ThemeDefault,
-		ScalarLayout: "classic",
 	})
 
 	// Rota básica
