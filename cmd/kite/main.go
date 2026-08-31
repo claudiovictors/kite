@@ -25,7 +25,7 @@ const (
 )
 
 const (
-	Version = "1.0.2"
+	Version = "1.0.4"
 	Banner  = FgCyan + `
   _  ___ _       
  | |/ / (_) |_ ___ 
@@ -427,7 +427,7 @@ func runMakeController(args []string) error {
 	content := fmt.Sprintf(`package controllers
 
 import (
-	"kite/core"
+	"github.com/claudiovictors/kite/core"
 )
 
 type %sController struct{}
@@ -460,7 +460,7 @@ func runMakeMiddleware(args []string) error {
 	content := fmt.Sprintf(`package middlewares
 
 import (
-	"kite/core"
+	"github.com/claudiovictors/kite/core"
 )
 
 func %s() core.MiddlewareFunc {
@@ -581,7 +581,7 @@ func runMakeSeeder(args []string) error {
 	content := fmt.Sprintf(`package seeders
 
 import (
-	"kite/database"
+	"github.com/claudiovictors/kite/database"
 )
 
 /**
@@ -624,8 +624,8 @@ func runMakeRequest(args []string) error {
 	content := fmt.Sprintf(`package requests
 
 import (
-	"kite/core"
-	"kite/validation"
+	"github.com/claudiovictors/kite/core"
+	"github.com/claudiovictors/kite/validation"
 )
 
 /**
@@ -688,7 +688,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"kite/core"
+	"github.com/claudiovictors/kite/core"
 )
 
 /**

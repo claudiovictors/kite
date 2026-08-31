@@ -1,3 +1,16 @@
+## [1.0.4] - 2026-08-31
+
+### Adicionado
+- **Documentação interativa com Scalar** (`docs`, estilo FastAPI): o Kite agora gera automaticamente a especificação **OpenAPI 3.1** a partir das rotas registradas e serve a interface interativa do **Scalar** em `/docs` (configurável via `kite.Config.DocsURL`). O schema bruto fica disponível em `/openapi.json`.
+- **`kite.Config`**: struct de configuração inicial da aplicação (`Title`, `Version`, `DocsURL`, `ScalarLayout`, `ScalarTheme`), passada em `kite.New(kite.Config{...})`.
+- **Metadados de rota encadeáveis**: `.Summary(text)`, `.Tags(names...)`, `.Body(dto)` e `.Response(status, dto)`, permitindo descrever cada endpoint (resumo, agrupamento por tags, schema de entrada/saída) direto no encadeamento de `app.Post/Get/...`.
+- **Tags de struct para OpenAPI**: suporte a `doc` (descrição do campo), `example` (valor de exemplo) e `format` (ex: `email`) nas structs de DTO/response, usadas na geração automática do schema.
+- **Temas do Scalar**: `ScalarTheme` com diversas opções pré-definidas (ex: `kite.ThemePurple`), aplicadas na UI de `/docs`.
+- **Layout do Scalar**: `ScalarLayout` com `"classic"` (padrão, mais próximo do Swagger tradicional) ou `"modern"` (mais focado em clientes de API).
+
+### Créditos
+- Recurso implementado em colaboração — PR revisado e integrado junto com [nome do amigo], que trouxe a implementação inicial da geração do schema OpenAPI e da integração com o Scalar.
+
 ## [1.0.2] - 2026-08-29
 
 ### Adicionado
