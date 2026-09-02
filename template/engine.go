@@ -77,13 +77,12 @@ func (e *Engine) AddFunc(name string, fn interface{}) {
  * @return error
  */
 func (e *Engine) Load() error {
-	pattern := filepath.Join(e.dir, "**", "*"+e.ext)
 	matches, err := doubleStarGlob(e.dir, e.ext)
 	if err != nil {
 		return fmt.Errorf("template: falha ao listar views em %s: %w", e.dir, err)
 	}
 	if len(matches) == 0 {
-		return fmt.Errorf("template: nenhuma view encontrada em %s (pattern %s)", e.dir, pattern)
+		return fmt.Errorf("template: nenhuma view encontrada em %s (extensão %q)", e.dir, e.ext)
 	}
 
 	e.mu.Lock()
