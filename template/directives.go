@@ -12,7 +12,6 @@ var (
 	elseDirective          = regexp.MustCompile(`@else\b`)
 	endifDirective         = regexp.MustCompile(`@endif\b`)
 	foreachAssignDirective = regexp.MustCompile(`@foreach\s*\(\s*(\$\w+)\s+in\s+(.+?)\)`)
-	foreachDirective       = regexp.MustCompile(`@foreach\s*\((.+?)\)`)
 	endforeachDirective    = regexp.MustCompile(`@endforeach\b`)
 	includeDirective       = regexp.MustCompile(`@include\s*\(\s*"(.+?)"\s*\)`)
 )
@@ -38,7 +37,6 @@ func compileDirectives(src string) string {
 	src = elseDirective.ReplaceAllString(src, `{{else}}`)
 	src = endifDirective.ReplaceAllString(src, `{{end}}`)
 	src = foreachAssignDirective.ReplaceAllString(src, `{{range $1 := $2}}`)
-	src = foreachDirective.ReplaceAllString(src, `{{range $1}}`)
 	src = endforeachDirective.ReplaceAllString(src, `{{end}}`)
 	src = includeDirective.ReplaceAllString(src, `{{template "$1" .}}`)
 	return src
