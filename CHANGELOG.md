@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Corrigido
+- **`template`**: Removida a variável não utilizada `pattern` em `engine.go` e corrigida a mensagem de erro de "view não encontrada" para exibir a extensão correta.
+- **`template`**: Removida a regex de fallback ambígua `foreachDirective` em `directives.go`, garantindo que apenas a sintaxe estrita `@foreach($var in collection)` seja suportada (evita geração silenciosa de templates Go inválidos).
+
 ## [1.0.4] - 2026-08-31
 
 ### Adicionado
@@ -9,7 +15,7 @@
 - **Layout do Scalar**: `ScalarLayout` com `"classic"` (padrão, mais próximo do Swagger tradicional) ou `"modern"` (mais focado em clientes de API).
 
 ### Créditos
-- Recurso implementado em colaboração — PR revisado e integrado junto com [nome do amigo], que trouxe a implementação inicial da geração do schema OpenAPI e da integração com o Scalar.
+- Recurso implementado em colaboração — PR revisado e integrado junto com [Carlos Felipe Araújo](https://github.com/carlosxfelipe), que trouxe a implementação inicial da geração do schema OpenAPI e da integração com o Scalar.
 
 ## [1.0.2] - 2026-08-29
 

@@ -1,17 +1,17 @@
-// Package template implementa a engine de views do framework.
+// Package template implements the framework's view engine.
 //
-// V1 (implementada): wrapper sobre html/template, com:
-//   - cache de templates parseados (parse único, reuso em cada request)
-//   - todos os arquivos são associados a uma única árvore de templates,
-//     permitindo {{template "outro/arquivo" .}} / @include entre views
-//     diferentes, e layouts via {{define "content"}} / {{template "content" .}}
-//   - diretivas estilo Blade (@if, @foreach, {{-- comentário --}},
-//     @include) transpiladas em directives.go antes do parse
-//   - reload automático em modo dev (Debug=true)
+// V1 (implemented): wrapper around html/template, with:
+//   - parsed templates cache (single parse, reused in every request)
+//   - all files are associated with a single template tree,
+//     allowing {{template "other/file" .}} / @include between different
+//     views, and layouts via {{define "content"}} / {{template "content" .}}
+//   - Blade-style directives (@if, @foreach, {{-- comment --}},
+//     @include) transpiled in directives.go before parsing
+//   - automatic reload in dev mode (Debug=true)
 //
-// V2 (planejada): lexer/parser dedicado, transpilando para html/template
-// ou para um AST próprio (as diretivas atuais são regex, suficientes
-// pro dia a dia mas frágeis em casos aninhados/complexos).
+// V2 (planned): dedicated lexer/parser, transpiling to html/template
+// or to a custom AST (current directives are regex, sufficient
+// for daily use but fragile in nested/complex cases).
 package template
 
 import (
@@ -24,26 +24,26 @@ import (
 )
 
 /**
- * Engine gerencia o ciclo de vida, compilação, cache em memória e renderização das views.
+ * Engine manages the lifecycle, compilation, memory caching, and rendering of views.
  */
 type Engine struct {
-	dir   string // Diretório raiz das views, ex: "./views"
-	ext   string // Extensão dos arquivos de template, ex: ".html"
-	Debug bool   // Quando true, força a re-leitura e compilação de todas as views a cada Render (Hot Reload)
+	dir   string // Root directory of the views, e.g.: "./views"
+	ext   string // Template files extension, e.g.: ".html"
+	Debug bool   // When true, forces re-reading and compiling all views on every Render (Hot Reload)
 
 	mu        sync.RWMutex
-	templates map[string]*template.Template // Mapeamento nome da view -> árvore de templates compartilhada
+	templates map[string]*template.Template // Mapping view name -> shared template tree
 	funcs     template.FuncMap
 }
 
 /**
- * New instancia um novo Engine apontando para o diretório de views informado.
+ * New instantiates a new Engine pointing to the given views directory.
  *
- * Exemplo:
+ * Example:
  *  engine := template.New("./views", ".html")
  *
- * @param dir string caminho do diretório contendo os templates.
- * @param ext string extensão dos arquivos de template.
+ * @param dir string path to the directory containing the templates.
+ * @param ext string template files extension.
  * @return *Engine
  */
 func New(dir, ext string) *Engine {
@@ -56,23 +56,23 @@ func New(dir, ext string) *Engine {
 }
 
 /**
- * AddFunc registra uma função helper customizada para ficar disponível globalmente nas views.
+ * AddFunc registers a custom helper function to be globally available in the views.
  *
- * Exemplo:
+ * Example:
  *  engine.AddFunc("upper", strings.ToUpper)
  *
- * @param name string nome utilizado para invocar a função dentro do template.
- * @param fn interface{} função a ser registrada.
+ * @param name string name used to invoke the function inside the template.
+ * @param fn interface{} function to be registered.
  */
 func (e *Engine) AddFunc(name string, fn interface{}) {
 	e.funcs[name] = fn
 }
 
 /**
- * Load faz a leitura e parsing de todos os arquivos do diretório de views para uma árvore de templates compartilhada.
+ * Load reads and parses all files from the views directory into a shared template tree.
  *
- * Transpila as diretivas estilo Blade em sintaxe nativa antes de realizar o parse no html/template.
- * Deve ser executado na inicialização da aplicação (boot), exceto quando Debug=true.
+ * Transpiles Blade-style directives into native syntax before parsing in html/template.
+ * Must be executed at application startup (boot), except when Debug=true.
  *
  * @return error
  */
@@ -100,8 +100,8 @@ func (e *Engine) Load() error {
 			return fmt.Errorf("template: erro ao ler %s: %w", file, err)
 		}
 
-		// Transpila as diretivas estilo Blade (@if, @foreach, {{-- --}},
-		// @include) pra sintaxe nativa do html/template antes de parsear.
+		// Transpiles Blade-style directives (@if, @foreach, {{-- --}},
+		// @include) to native html/template syntax before parsing.
 		compiled := compileDirectives(string(raw))
 
 		root, err = root.New(name).Parse(compiled)
@@ -120,17 +120,17 @@ func (e *Engine) Load() error {
 }
 
 /**
- * Render executa o template indicado pelo nome e escreve o HTML processado no buffer w.
+ * Render executes the template indicated by the name and writes the processed HTML to the buffer w.
  *
- * O nome deve ser o caminho relativo ao diretório de views sem a extensão (ex: "users/show").
+ * The name must be the relative path to the views directory without the extension (e.g.: "users/show").
  *
- * Exemplo:
+ * Example:
  *  var buf bytes.Buffer
  *  err := engine.Render(&buf, "users/index", data)
  *
- * @param w *bytes.Buffer buffer de saída.
- * @param name string nome da view.
- * @param data interface{} dados passados para renderização na view.
+ * @param w *bytes.Buffer output buffer.
+ * @param name string view name.
+ * @param data interface{} data passed for rendering in the view.
  * @return error
  */
 func (e *Engine) Render(w *bytes.Buffer, name string, data interface{}) error {
@@ -152,13 +152,13 @@ func (e *Engine) Render(w *bytes.Buffer, name string, data interface{}) error {
 }
 
 /**
- * RenderToString é um helper utilitário que renderiza a view informada e retorna o resultado como string.
+ * RenderToString is a utility helper that renders the given view and returns the result as a string.
  *
- * Exemplo:
+ * Example:
  *  html, err := engine.RenderToString("emails/welcome", user)
  *
- * @param name string nome da view.
- * @param data interface{} dados passados para a view.
+ * @param name string view name.
+ * @param data interface{} data passed to the view.
  * @return (string, error)
  */
 func (e *Engine) RenderToString(name string, data interface{}) (string, error) {
@@ -170,10 +170,10 @@ func (e *Engine) RenderToString(name string, data interface{}) (string, error) {
 }
 
 /**
- * templateName extrai o nome relativo normalizado da view a partir do caminho absoluto/relativo do arquivo no disco.
+ * templateName extracts the normalized relative view name from the absolute/relative file path on disk.
  *
- * @param file string caminho completo do arquivo.
- * @return string nome da view formatado com barras normais (ex: "layouts/main").
+ * @param file string full file path.
+ * @return string view name formatted with forward slashes (e.g.: "layouts/main").
  */
 func (e *Engine) templateName(file string) string {
 	rel, _ := filepath.Rel(e.dir, file)
@@ -182,11 +182,11 @@ func (e *Engine) templateName(file string) string {
 }
 
 /**
- * doubleStarGlob realiza a busca recursiva de arquivos no diretório especificado filtrando pela extensão.
+ * doubleStarGlob performs a recursive file search in the specified directory, filtering by extension.
  *
- * @param root string diretório raiz de busca.
- * @param ext string extensão alvo (ex: ".html").
- * @return ([]string, error) lista com o caminho dos arquivos encontrados.
+ * @param root string root search directory.
+ * @param ext string target extension (e.g.: ".html").
+ * @return ([]string, error) list with the paths of the found files.
  */
 func doubleStarGlob(root, ext string) ([]string, error) {
 	var matches []string
