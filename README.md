@@ -1,8 +1,12 @@
-<h1 align="center">Kite</h1>
+<div align="center">
+	<img src="logo.svg"  width="70px">
+</div>
+
+<h1 align="center">Kite Framework</h1>
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.5-blue)](CHANGELOG.md)
 [![Go Version](https://img.shields.io/badge/go-1.26.5-00ADD8?logo=go&logoColor=white)](go.mod)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status](https://img.shields.io/badge/status-em%20produção-green)](CHANGELOG.md)
@@ -11,38 +15,27 @@
 
 </div>
 
-Kite é um micro-framework web para Go, inspirado no Express.js e no
-Laravel. Reúne, num único módulo e sem dependências externas, um
-núcleo HTTP com roteamento e middlewares, um ORM estilo Eloquent sobre
-`database/sql`, autenticação via JWT e sessão, e uma engine de views
-com diretivas ao estilo Blade.
+Kite is a web micro-framework for Go, inspired by Express.js and Laravel. It brings, in a single module and without external dependencies, an HTTP core with routing and middlewares, an Eloquent-style ORM over `database/sql`, JWT/session authentication, and a Blade-like template engine.
 
-## Características
+## Features
 
-- Zero dependências externas: construído inteiramente sobre a
-  standard library do Go (`net/http`, `database/sql`, `html/template`,
-  `crypto/hmac`, `crypto/rand`, `reflect`).
-- Documentação interativa integrada com **Scalar** (estilo FastAPI): geração automática de **OpenAPI 3.1** e UI moderna em `/docs` sem configurações extras.
-- API fluente e encadeável, próxima da sintaxe do Express e do
-  Eloquent.
-- Router baseado em árvore de segmentos, com suporte a parâmetros
-  nomeados (`:id`) e wildcard (`*`).
-- ORM com Query Builder genérico (`Query[T]`), paginação, joins e
-  relacionamentos manuais (`HasMany`, `BelongsTo`).
-- Autenticação JWT (HS256) e sessão baseada em cookie, com store em
-  memória incluída.
-- Engine de templates sobre `html/template`, com diretivas
-  `@if`, `@foreach`, `@include` e comentários `{{-- --}}`.
+- Zero external dependencies: built entirely on the Go standard library (`net/http`, `database/sql`, `html/template`, `crypto/hmac`, `crypto/rand`, `reflect`).
+- Integrated interactive documentation with **Scalar** (FastAPI-like): automatic **OpenAPI 3.1** generation and a modern UI at `/docs` with no extra setup.
+- Fluent, chainable API, close to the syntax of Express and Eloquent.
+- Tree-based router, with support for named parameters (`:id`) and wildcard (`*`).
+- ORM with a generic Query Builder (`Query[T]`), pagination, joins and manual relationships (`HasMany`, `BelongsTo`).
+- JWT authentication (HS256) and cookie-based session with an in-memory store included.
+- Template engine on top of `html/template`, with directives `@if`, `@foreach`, `@include` and comments `{{-- --}}`.
 
-## Instalação
+## Installation
 
 ```bash
 go get github.com/claudiovictors/kite
 ```
 
-Requer Go 1.26.5 ou superior.
+Requires Go 1.26.5 or newer.
 
-## Exemplo rápido
+## Quick example
 
 ```go
 package main
@@ -53,7 +46,7 @@ func main() {
 	app := kite.New()
 
 	app.Get("/", func(req kite.Request, res kite.Response) error {
-		return res.Json(map[string]string{"message": "olá a partir do Kite"})
+		return res.Json(map[string]string{"message": "hello from Kite"})
 	})
 
 	app.Get("/users/:id", func(req kite.Request, res kite.Response) error {
@@ -64,14 +57,14 @@ func main() {
 }
 ```
 
-## Documentação Interativa com Scalar (Estilo FastAPI)
+## Interactive Documentation with Scalar (FastAPI-like)
 
-O Kite gera automaticamente a especificação **OpenAPI 3.1** e serve a interface interativa do **Scalar** em `/docs`:
+Kite automatically generates the **OpenAPI 3.1** specification and serves the interactive **Scalar** UI at `/docs`:
 
 ```go
 type CreateUserDTO struct {
-	Name  string `json:"name" doc:"Nome completo" example:"Carlos Silva" validate:"required"`
-	Email string `json:"email" doc:"E-mail" format:"email" example:"carlos@email.com" validate:"required"`
+	Name  string `json:"name" doc:"Full name" example:"Carlos Silva" validate:"required"`
+	Email string `json:"email" doc:"Email" format:"email" example:"carlos@email.com" validate:"required"`
 }
 
 type UserResponse struct {
@@ -82,9 +75,9 @@ type UserResponse struct {
 
 func main() {
 	app := kite.New(kite.Config{
-		Title:   "Minha API",
+		Title:   "My API",
 		Version: "1.0.0",
-		DocsURL: "/docs", // Scalar UI (padrão: /docs)
+		DocsURL: "/docs", // Scalar UI (default: /docs)
 	})
 
 	app.Post("/users", func(req kite.Request, res kite.Response) error {
@@ -94,8 +87,8 @@ func main() {
 		}
 		return res.Status(201).Json(UserResponse{ID: "1", Name: dto.Name, Email: dto.Email})
 	}).
-		Summary("Cadastrar usuário").
-		Tags("Usuários").
+		Summary("Register user").
+		Tags("Users").
 		Body(CreateUserDTO{}).
 		Response(201, UserResponse{})
 
@@ -103,28 +96,28 @@ func main() {
 }
 ```
 
-Ao rodar a aplicação:
-- Acesse `http://localhost:3000/docs` para ver a interface interativa do **Scalar**.
-- Acesse `http://localhost:3000/openapi.json` para obter o schema OpenAPI 3.1.
+When running the application:
+- Visit `http://localhost:3000/docs` to see the interactive **Scalar** UI.
+- Visit `http://localhost:3000/openapi.json` to get the OpenAPI 3.1 schema.
 
-### Personalizando o Visual (Tema e Layout)
+### Customizing the Look (Theme and Layout)
 
-Por padrão, o Kite adota o layout `classic` do Scalar, pois ele se assemelha mais à interface tradicional do Swagger. Se preferir um visual mais moderno e focado em clientes de API, basta alterar a configuração `ScalarLayout` para `"modern"`. Você também pode alterar o tema de cores padrão através de `ScalarTheme`.
+By default Kite uses the Scalar `classic` layout, which resembles a traditional Swagger-like interface. If you prefer a more modern API-focused UI, change the `ScalarLayout` to `"modern"`. You can also change the theme color via `ScalarTheme`.
 
 ```go
 	app := kite.New(kite.Config{
-		Title:        "Minha API",
+		Title:        "My API",
 		Version:      "1.0.0",
-		ScalarLayout: "modern",         // "classic" (padrão) ou "modern"
-		ScalarTheme:  kite.ThemePurple, // diversas opções de temas disponíveis
+		ScalarLayout: "modern",         // "classic" (default) or "modern"
+		ScalarTheme:  kite.ThemePurple, // various theme options available
 	})
 ```
 
-## Estrutura do projeto
+## Project structure
 
 ```
 kite/
-├── auth/           # autenticação JWT e sessão
+├── auth/           # JWT and session authentication
 │   ├── jwt.go
 │   ├── middleware.go
 │   └── session.go
@@ -133,14 +126,14 @@ kite/
 │   ├── context.go
 │   ├── middleware.go
 │   └── router.go
-├── database/       # ORM estilo Eloquent sobre database/sql
+├── database/       # Eloquent-style ORM over database/sql
 │   ├── orm.go
 │   ├── query_builder.go
 │   └── relations.go
-├── template/       # engine de views com diretivas estilo Blade
+├── template/       # Blade-style template engine
 │   ├── directives.go
 │   └── engine.go
-├── examples/       # aplicação de exemplo
+├── examples/       # example application
 │   └── main.go
 ├── go.mod
 ├── LICENSE
@@ -148,35 +141,29 @@ kite/
 └── CHANGELOG.md
 ```
 
-## Executando os testes
+## Running tests
 
 ```bash
 go test ./... -v
 ```
 
-## Executando o exemplo
+## Running the example
 
 ```bash
 cd examples
 go run main.go
 ```
 
-## Estado do projeto
+## Project status
 
-O Kite está em desenvolvimento ativo. Os pacotes `core`, `database`,
-`auth` e `template` já são funcionais, mas a API pode sofrer alterações
-até a primeira versão estável. Itens conhecidos no roadmap:
+Kite is in active development. The `core`, `database`, `auth` and `template` packages are already functional, but the API may change until the first stable release. Known roadmap items:
 
-- Active Record no ORM (`model.Save()`, `model.Delete()`)
+- Active Record in the ORM (`model.Save()`, `model.Delete()`)
 - Migrations
-- Eager loading de relacionamentos (`.With(...)`)
-- Suporte a RS256/ES256 no JWT
-- Parser dedicado para as diretivas de template, em substituição à
-  implementação atual baseada em expressões regulares
+- Eager loading of relationships (`.With(...)`)
+- Support for RS256/ES256 in JWT
+- Dedicated parser for template directives to replace the current regex-based implementation
 
-Consulte o [CHANGELOG](CHANGELOG.md) para o histórico de alterações.
+See the [CHANGELOG](CHANGELOG.md) for the history of changes.
 
-## Licença
-
-Este projeto está licenciado sob a licença MIT. Consulte o ficheiro
-[LICENSE](LICENSE) para o texto completo.
+## License

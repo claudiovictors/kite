@@ -108,7 +108,7 @@ func New(configs ...Config) *App {
 }
 
 /**
- * defaultNotFoundHandler manages requests that fail to match any registered route.
+ * defaultNotFoundHandler handles requests that fail to match any registered route.
  *
  * @param {Request} req - The wrapped incoming HTTP request.
  * @param {Response} res - The wrapped HTTP response writer.
@@ -116,7 +116,7 @@ func New(configs ...Config) *App {
  */
 func defaultNotFoundHandler(req Request, res Response) error {
 	return res.Status(http.StatusNotFound).WithJson(ErrorResponse{
-		Error:  "rota não encontrada: " + req.Method + " " + req.URL.Path,
+		Error:  "route not found: " + req.Method + " " + req.URL.Path,
 		Status: http.StatusNotFound,
 	})
 }
@@ -129,12 +129,12 @@ func defaultNotFoundHandler(req Request, res Response) error {
  * @param {error} err - The captured error interface.
  */
 func defaultErrorHandler(req Request, res Response, err error) {
-	log.Printf("kite: erro no handler %s %s: %v", req.Method, req.URL.Path, err)
+	log.Printf("kite: handler error %s %s: %v", req.Method, req.URL.Path, err)
 	if writeErr := res.Status(http.StatusInternalServerError).WithJson(ErrorResponse{
-		Error:  "erro interno do servidor",
+		Error:  "internal server error",
 		Status: http.StatusInternalServerError,
 	}); writeErr != nil {
-		log.Printf("kite: falha ao escrever resposta de erro: %v", writeErr)
+		log.Printf("kite: failed to write error response: %v", writeErr)
 	}
 }
 
@@ -148,9 +148,10 @@ func (a *App) Use(mw MiddlewareFunc) {
 }
 
 /**
- * Get registers a route handling HTTP GET requests and returns a *Route, que permite
- * encadear .Middleware(...) (específico da rota) e .Name(...) (para reverse routing).
+ * Get registers a route handling HTTP GET requests and returns a *Route that allows
+ * chaining .Middleware(...) (route-specific) and .Name(...) (for reverse routing).
  *
+ * Example:
  *	app.Get("/users/:id", showUser).
  *	    Middleware(auth.RequireAuth).
  *	    Name("users.show")
@@ -203,9 +204,9 @@ func (a *App) Patch(path string, h HandlerFunc) *Route {
 
 /**
  * register internally binds an HTTP method and path combination with the app's
- * global middleware chain, guardando o handler original (rawHandler) e a lista
- * de middlewares base no *node subjacente — necessário para que Route.Middleware
- * possa recompor a cadeia depois, já incluindo middlewares específicos da rota.
+ * global middleware chain, storing the original handler (rawHandler) and the base
+ * middleware list on the underlying *node — necessary so Route.Middleware can
+ * re-compose the chain later including route-specific middlewares.
  *
  * @param {string} method - The HTTP verb.
  * @param {string} path - The route endpoint path.
@@ -217,11 +218,11 @@ func (a *App) register(method, path string, h HandlerFunc) *Route {
 	copy(base, a.middlewares)
 
 	n := a.router.Add(method, path, chain(h, base))
-	// BUG CORRIGIDO: Router.Add guarda em rawHandler o mesmo handler que
-	// recebe (já encadeado com base). Sem esta linha, Route.Middleware
-	// recompunha a cadeia a partir de um handler que já continha "base",
-	// fazendo os middlewares globais/do grupo rodarem duas vezes. rawHandler
-	// precisa ser sempre o handler ORIGINAL, sem nenhum middleware aplicado.
+	// FIXED BUG: Router.Add used to store rawHandler as the handler it received
+	// (already chained with base). Without this assignment, Route.Middleware
+	// would recompute the chain from a handler that already contained "base",
+	// causing global/group middlewares to run twice. rawHandler must always be
+	// the ORIGINAL handler, without any middleware applied.
 	n.rawHandler = h
 
 	registerAutoOptions(a.router, method, path, base)
@@ -229,24 +230,23 @@ func (a *App) register(method, path string, h HandlerFunc) *Route {
 }
 
 /**
- * registerAutoOptions garante que exista um handler OPTIONS para path,
- * passando pela mesma cadeia de middlewares (base) das outras rotas
- * registradas nesse caminho.
+ * registerAutoOptions ensures there is an OPTIONS handler for the given path,
+ * passing through the same middleware chain (base) as other routes registered
+ * for that path.
  *
- * BUG CORRIGIDO: sem isso, uma requisição de preflight CORS (método
- * OPTIONS) nunca batia em nenhum node da árvore de rotas — só existiam
- * nodes para GET/POST/etc — e o Router.Match devolvia ok=false direto
- * para App.NotFoundHandler, sem passar por NENHUM middleware. Ou seja,
- * kite.CORS() registrado via app.Use nunca era executado num preflight
- * real de browser. Este auto-registro faz o OPTIONS cair na mesma cadeia
- * de middlewares, permitindo que CORS() responda o preflight normalmente
- * (ele mesmo decide o que fazer quando req.Method == OPTIONS). Se nenhum
- * middleware tratar o OPTIONS, o handler default aqui só responde 204.
+ * FIXED BUG: without this, CORS preflight requests (OPTIONS) never matched any
+ * node in the routing tree — only GET/POST/etc nodes existed — and Router.Match
+ * returned ok=false directly to App.NotFoundHandler without going through ANY
+ * middleware. That meant app.Use(kite.CORS()) never ran on real browser preflights.
+ * This auto-registration makes OPTIONS go through the same middleware chain so
+ * CORS() can respond to the preflight normally (it decides what to do when
+ * req.Method == OPTIONS). If no middleware handles OPTIONS, the default handler
+ * here responds with 204.
  *
  * @param router *Router
- * @param method string - Método HTTP da rota que disparou o registro (GET, POST, ...).
- * @param path string - Path completo já resolvido (com prefixo de grupo, se houver).
- * @param base []MiddlewareFunc - Middlewares (globais e/ou de grupo) a aplicar no OPTIONS.
+ * @param method string - HTTP method of the route that triggered registration (GET, POST, ...).
+ * @param path string - Fully resolved path (with group prefix if present).
+ * @param base []MiddlewareFunc - Middlewares (global and/or group) to apply to OPTIONS.
  */
 func registerAutoOptions(router *Router, method, path string, base []MiddlewareFunc) {
 	if method == http.MethodOptions {
@@ -259,11 +259,11 @@ func registerAutoOptions(router *Router, method, path string, base []MiddlewareF
 }
 
 /**
- * URLFor gera a URL de uma rota nomeada previamente com .Name(...). Veja
- * Router.URLFor para detalhes sobre parâmetros de rota e query string extra.
+ * URLFor generates the URL for a route previously named with .Name(...).
+ * See Router.URLFor for details about route parameters and extra query strings.
  *
- * @param {string} name - Nome atribuído via Route.Name.
- * @param {map[string]string} params - Valores dos parâmetros de rota (e extras).
+ * @param {string} name - Name assigned via Route.Name.
+ * @param {map[string]string} params - Values for route parameters (and extras).
  * @return {(string, error)}
  */
 func (a *App) URLFor(name string, params map[string]string) (string, error) {
@@ -271,12 +271,12 @@ func (a *App) URLFor(name string, params map[string]string) (string, error) {
 }
 
 /**
- * LoadViews configura o motor de templates da aplicação: cria um
- * template.Engine apontando para dir (extensão ext, ex.: ".html"), carrega
- * todas as views encontradas e guarda o engine no App, para que
- * res.Render(name, data) funcione em qualquer handler sem precisar receber
- * o engine manualmente.
+ * LoadViews configures the application's view engine: creates a template.Engine
+ * pointed at dir (ext extension, e.g. ".html"), loads all found views and stores
+ * the engine on the App so res.Render(name, data) works in any handler without
+ * passing the engine manually.
  *
+ * Example:
  *	app := kite.New()
  *	if err := app.LoadViews("./views", ".html"); err != nil {
  *	    log.Fatal(err)
@@ -286,24 +286,23 @@ func (a *App) URLFor(name string, params map[string]string) (string, error) {
  *	    return res.Render("index", kite.Map{"Title": "Hello, World!"})
  *	})
  *
- * @param {string} dir - Diretório raiz das views.
- * @param {string} ext - Extensão dos arquivos de view (ex.: ".html").
+ * @param {string} dir - Root directory for views.
+ * @param {string} ext - File extension for view files (e.g. ".html").
  * @return {error}
  */
 func (a *App) LoadViews(dir, ext string) error {
 	engine := template.New(dir, ext)
 	if err := engine.Load(); err != nil {
-		return fmt.Errorf("kite: falha ao carregar views de %s: %w", dir, err)
+		return fmt.Errorf("kite: failed to load views from %s: %w", dir, err)
 	}
 	a.views = engine
 	return nil
 }
 
 /**
- * Views devolve o motor de templates configurado via LoadViews (ou nil, se
- * ainda não tiver sido chamado) — útil para passar o engine adiante
- * manualmente (ex.: para RenderWith) ou para registrar funções extras com
- * engine.AddFunc antes de recarregar as views em modo Debug.
+ * Views returns the template engine configured via LoadViews (or nil if not set)
+ * — useful to pass the engine onward manually (eg: to RenderWith) or to register
+ * extra functions with engine.AddFunc before reloading views in Debug mode.
  *
  * @return {*template.Engine}
  */
@@ -357,8 +356,8 @@ func (a *App) registerDocs() {
 
 /**
  * ServeHTTP satisfies the standard net/http Handler interface for dispatching requests.
- * Repassa o engine de views configurado (a.views, pode ser nil) para a Response
- * gerada, permitindo que res.Render funcione dentro do handler.
+ * It passes the configured view engine (a.views, may be nil) to the generated Response
+ * so that res.Render works inside handlers.
  *
  * @param {http.ResponseWriter} w - Native response writer.
  * @param {*http.Request} r - Native HTTP request pointer.
@@ -385,7 +384,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
  * @return {error} Returns server error states upon failure.
  */
 func (a *App) Listen(addr string) error {
-	log.Printf("kite: ouvindo em %s", addr)
+	log.Printf("Kite server running on port  %s", addr)
 	return http.ListenAndServe(addr, a)
 }
 
@@ -409,7 +408,7 @@ func (g *RouteGroup) Use(mw MiddlewareFunc) {
 
 /**
  * Get registers a scoped HTTP GET route within the group and returns a *Route,
- * que permite encadear .Middleware(...) e .Name(...) do mesmo jeito que em App.
+ * allowing chaining .Middleware(...) and .Name(...) just like on App.
  *
  * @param {string} path
  * @param {HandlerFunc} h
@@ -465,8 +464,8 @@ func (g *RouteGroup) Patch(path string, h HandlerFunc) *Route {
 
 /**
  * register internally evaluates group prefixes and registers the composed handler
- * chain (middlewares globais do App não entram aqui — eles já foram herdados no
- * momento de a.Group() copiar a.middlewares para dentro do RouteGroup).
+ * chain (global App middlewares are not included here — they were already inherited
+ * when a.Group() copied a.middlewares into the RouteGroup).
  *
  * @param {string} method - Target HTTP method.
  * @param {string} path - Route suffix path.
@@ -480,9 +479,9 @@ func (g *RouteGroup) register(method, path string, h HandlerFunc) *Route {
 	copy(base, g.middlewares)
 
 	n := g.app.router.Add(method, full, chain(h, base))
-	// Mesma correção de App.register: rawHandler tem que ser o handler
-	// original (h), não o já encadeado com "base" — senão Route.Middleware
-	// duplica os middlewares do grupo ao recompor a cadeia.
+	// Same fix as App.register: rawHandler must be the original handler (h),
+	// not the one already chained with "base" — otherwise Route.Middleware
+	// would duplicate the group's middlewares when recomposing the chain.
 	n.rawHandler = h
 
 	registerAutoOptions(g.app.router, method, full, base)
@@ -507,10 +506,11 @@ func joinPrefix(prefix, path string) string {
 }
 
 /**
- * Route é devolvido por App.Get/Post/Put/Delete/Patch e pelos equivalentes de
- * RouteGroup. Permite anexar middlewares específicos da rota e/ou nomeá-la para
- * reverse routing, de forma encadeável:
+ * Route is returned by App.Get/Post/Put/Delete/Patch and by the equivalent
+ * RouteGroup methods. It allows attaching route-specific middlewares and/or
+ * naming the route for reverse routing, in a chainable way:
  *
+ * Example:
  *	app.Get("/users/:id", showUser).
  *	    Middleware(auth.RequireAuth, RateLimit(60)).
  *	    Name("users.show")
@@ -527,13 +527,13 @@ type Route struct {
 }
 
 /**
- * Middleware anexa um ou mais middlewares específicos desta rota. Eles executam
- * depois dos middlewares globais/do grupo e antes do handler final — ou seja, são
- * os mais "internos" da cadeia. Pode ser chamado múltiplas vezes; cada chamada
- * acrescenta à lista já existente e recompõe a cadeia final a partir do handler
- * original (rawHandler), evitando aplicar os middlewares duas vezes.
+ * Middleware appends one or more middlewares specific to this route. They run
+ * after global/group middlewares and before the final handler — i.e. they are
+ * the innermost middlewares. This can be called multiple times; each call
+ * appends to the existing list and recomposes the final chain from the
+ * original handler (rawHandler), avoiding applying middlewares twice.
  *
- * @param {...MiddlewareFunc} mw - Middlewares exclusivos desta rota.
+ * @param {...MiddlewareFunc} mw - Middlewares exclusive to this route.
  * @return {*Route}
  */
 func (rt *Route) Middleware(mw ...MiddlewareFunc) *Route {
@@ -548,11 +548,11 @@ func (rt *Route) Middleware(mw ...MiddlewareFunc) *Route {
 }
 
 /**
- * Name atribui um identificador único a esta rota, permitindo gerar sua URL
- * depois via app.URLFor(name, params) — equivalente ao ->name() + route() do
- * Laravel. Nomear novamente uma rota substitui a entrada anterior no índice.
+ * Name assigns a unique identifier to this route, allowing its URL to be
+ * generated later via app.URLFor(name, params) — equivalent to ->name() + route()
+ * in other frameworks. Re-naming a route replaces the previous entry in the index.
  *
- * @param {string} name - Identificador da rota, ex.: "users.show".
+ * @param {string} name - Route identifier, e.g.: "users.show".
  * @return {*Route}
  */
 func (rt *Route) Name(name string) *Route {
@@ -574,7 +574,7 @@ func (rt *Route) ensureDoc() *RouteDoc {
 }
 
 /**
- * Summary define um resumo curto da operação na documentação OpenAPI.
+ * Summary sets a short summary for the operation in the OpenAPI documentation.
  */
 func (rt *Route) Summary(summary string) *Route {
 	rt.ensureDoc().Summary = summary
@@ -582,7 +582,7 @@ func (rt *Route) Summary(summary string) *Route {
 }
 
 /**
- * Description define uma descrição detalhada da operação na documentação OpenAPI.
+ * Description sets a detailed description for the operation in the OpenAPI documentation.
  */
 func (rt *Route) Description(desc string) *Route {
 	rt.ensureDoc().Description = desc
@@ -590,7 +590,7 @@ func (rt *Route) Description(desc string) *Route {
 }
 
 /**
- * Tags categoriza a rota em tags/grupos na documentação OpenAPI e no Scalar.
+ * Tags categorizes the route into tags/groups in the OpenAPI docs and Scalar UI.
  */
 func (rt *Route) Tags(tags ...string) *Route {
 	rt.ensureDoc().Tags = append(rt.ensureDoc().Tags, tags...)
@@ -598,7 +598,7 @@ func (rt *Route) Tags(tags ...string) *Route {
 }
 
 /**
- * Deprecated marca a rota como obsoleta/descontinuada na documentação.
+ * Deprecated marks the route as deprecated in the documentation.
  */
 func (rt *Route) Deprecated() *Route {
 	rt.ensureDoc().Deprecated = true
@@ -606,7 +606,7 @@ func (rt *Route) Deprecated() *Route {
 }
 
 /**
- * Hidden oculta a rota da documentação OpenAPI e da interface do Scalar.
+ * Hidden hides the route from both OpenAPI documentation and the Scalar interface.
  */
 func (rt *Route) Hidden() *Route {
 	rt.ensureDoc().Hidden = true
@@ -614,7 +614,7 @@ func (rt *Route) Hidden() *Route {
 }
 
 /**
- * Body define a estrutura e schema do corpo esperado na requisição HTTP (application/json).
+ * Body defines the structure and schema of the expected request body (application/json).
  */
 func (rt *Route) Body(model any, description ...string) *Route {
 	desc := ""
@@ -630,7 +630,7 @@ func (rt *Route) Body(model any, description ...string) *Route {
 }
 
 /**
- * Query documenta um parâmetro de query string para a rota.
+ * Query documents a query string parameter for the route.
  */
 func (rt *Route) Query(name string, model any, description ...string) *Route {
 	desc := ""
@@ -647,7 +647,7 @@ func (rt *Route) Query(name string, model any, description ...string) *Route {
 }
 
 /**
- * Header documenta um cabeçalho HTTP esperado na requisição da rota.
+ * Header documents an expected HTTP header for the route's request.
  */
 func (rt *Route) Header(name string, model any, description ...string) *Route {
 	desc := ""
@@ -664,7 +664,7 @@ func (rt *Route) Header(name string, model any, description ...string) *Route {
 }
 
 /**
- * Response documenta uma resposta com código HTTP e estrutura de dados retornada.
+ * Response documents a response with an HTTP status code and returned data structure.
  */
 func (rt *Route) Response(statusCode int, model any, description ...string) *Route {
 	desc := ""
@@ -679,7 +679,7 @@ func (rt *Route) Response(statusCode int, model any, description ...string) *Rou
 }
 
 /**
- * Doc substitui todos os metadados de documentação da rota por um RouteDoc customizado.
+ * Doc replaces all route documentation metadata with a custom RouteDoc.
  */
 func (rt *Route) Doc(doc RouteDoc) *Route {
 	current := rt.ensureDoc()

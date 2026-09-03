@@ -35,14 +35,14 @@ const (
 )
 
 /**
- * Command representa um comando registrado na CLI: seu nome de invocação,
- * a linha de uso exibida no help, uma descrição curta e a função executada
- * quando o comando é chamado.
+ * Command represents a CLI-registered command: its invocation name,
+ * the usage line shown in help, a short description and the function
+ * executed when the command is called.
  *
- * @property {string} Name - Nome usado na linha de comando (ex.: "make:model").
- * @property {string} Usage - Exemplo de uso exibido no help.
- * @property {string} Description - Descrição curta exibida na lista de comandos.
- * @property {func(args []string) error} Run - Função executada com os argumentos após o nome do comando.
+ * @property {string} Name - Name used on the command line (eg: "make:model").
+ * @property {string} Usage - Example usage shown on help.
+ * @property {string} Description - Short description shown in the command list.
+ * @property {func(args []string) error} Run - Function executed with the arguments after the command name.
  */
 type Command struct {
 	Name        string
@@ -54,19 +54,19 @@ type Command struct {
 var commands = map[string]Command{}
 
 /**
- * RegisterCommand adiciona um Command ao índice global de comandos
- * disponíveis, indexado pelo seu Name.
+ * RegisterCommand adds a Command to the global registry of available commands,
+ * indexed by its Name.
  *
- * @param cmd Command - Comando a ser registrado.
+ * @param cmd Command - Command to be registered.
  */
 func RegisterCommand(cmd Command) {
 	commands[cmd.Name] = cmd
 }
 
 /**
- * main é o ponto de entrada da CLI: registra todos os comandos, resolve
- * flags globais (-v/--version, -h/--help), localiza o Command pelo nome
- * informado em os.Args[1] e executa seu Run com o restante dos argumentos.
+ * main is the CLI entrypoint: it registers all commands, resolves global flags
+ * (-v/--version, -h/--help), finds the Command by os.Args[1] and runs its Run
+ * with the remaining arguments.
  */
 func main() {
 	registerAllCommands()
@@ -89,7 +89,7 @@ func main() {
 
 	cmd, exists := commands[commandName]
 	if !exists {
-		fmt.Printf("\n%s O comando %q não foi encontrado.\n\n", BadgeError, commandName)
+		fmt.Printf("\n%s The command %q was not found.\n\n", BadgeError, commandName)
 		printHelp()
 		os.Exit(1)
 	}
@@ -101,110 +101,110 @@ func main() {
 }
 
 /**
- * registerAllCommands centraliza o registro de todos os comandos
- * conhecidos pela CLI. Chamado uma única vez, no início de main().
+ * registerAllCommands centralizes registration of all known CLI commands.
+ * Called once at the start of main().
  */
 func registerAllCommands() {
 	RegisterCommand(Command{
 		Name:        "new",
-		Usage:       "kite new <nome-do-projeto>",
-		Description: "Inicializa uma nova estrutura de projeto Kite.",
+		Usage:       "kite new <project-name>",
+		Description: "Initializes a new Kite project structure.",
 		Run:         runNewProject,
 	})
 
 	RegisterCommand(Command{
 		Name:        "make:controller",
-		Usage:       "kite make:controller <Nome>",
-		Description: "Gera um novo arquivo de controller/handler.",
+		Usage:       "kite make:controller <Name>",
+		Description: "Generates a new controller/handler file.",
 		Run:         runMakeController,
 	})
 
 	RegisterCommand(Command{
 		Name:        "make:middleware",
-		Usage:       "kite make:middleware <Nome>",
-		Description: "Gera uma nova estrutura de middleware.",
+		Usage:       "kite make:middleware <Name>",
+		Description: "Generates a new middleware scaffold.",
 		Run:         runMakeMiddleware,
 	})
 
 	RegisterCommand(Command{
 		Name:        "make:model",
-		Usage:       "kite make:model <Nome>",
-		Description: "Gera um modelo de dados para o ORM/Database.",
+		Usage:       "kite make:model <Name>",
+		Description: "Generates a data model for the ORM/Database.",
 		Run:         runMakeModel,
 	})
 
 	RegisterCommand(Command{
 		Name:        "make:migration",
-		Usage:       "kite make:migration <nome_da_tabela>",
-		Description: "Gera um novo arquivo de migração de banco de dados.",
+		Usage:       "kite make:migration <table_name>",
+		Description: "Generates a new database migration file.",
 		Run:         runMakeMigration,
 	})
 
 	RegisterCommand(Command{
 		Name:        "make:seeder",
-		Usage:       "kite make:seeder <Nome>",
-		Description: "Gera um novo arquivo de seeder de banco de dados.",
+		Usage:       "kite make:seeder <Name>",
+		Description: "Generates a new database seeder file.",
 		Run:         runMakeSeeder,
 	})
 
 	RegisterCommand(Command{
 		Name:        "make:request",
-		Usage:       "kite make:request <Nome>",
-		Description: "Gera uma classe de validação de request (FormRequest).",
+		Usage:       "kite make:request <Name>",
+		Description: "Generates a request validation class (FormRequest style).",
 		Run:         runMakeRequest,
 	})
 
 	RegisterCommand(Command{
 		Name:        "make:test",
-		Usage:       "kite make:test <Nome>",
-		Description: "Gera um esqueleto de teste HTTP para um controller.",
+		Usage:       "kite make:test <Name>",
+		Description: "Generates an HTTP test skeleton for a controller.",
 		Run:         runMakeTest,
 	})
 
 	RegisterCommand(Command{
 		Name:        "migrate",
 		Usage:       "kite migrate",
-		Description: "Executa as migrações pendentes da aplicação atual (via database.RunCLI).",
+		Description: "Runs pending migrations for the current application (via database.RunCLI).",
 		Run:         runMigrate,
 	})
 
 	RegisterCommand(Command{
 		Name:        "migrate:status",
 		Usage:       "kite migrate:status",
-		Description: "Mostra o estado (executada/pendente) de cada migração registrada.",
+		Description: "Shows the status (ran/pending) of each registered migration.",
 		Run:         runMigrateStatus,
 	})
 
 	RegisterCommand(Command{
 		Name:        "migrate:rollback",
 		Usage:       "kite migrate:rollback [steps]",
-		Description: "Reverte o último lote de migrações (ou os últimos N lotes).",
+		Description: "Rolls back the last batch of migrations (or the last N batches).",
 		Run:         runMigrateRollback,
 	})
 
 	RegisterCommand(Command{
 		Name:        "seed",
 		Usage:       "kite seed",
-		Description: "Roda os seeders registrados na aplicação atual (via database.RunCLI).",
+		Description: "Runs the seeders registered in the current application (via database.RunCLI).",
 		Run:         runSeed,
 	})
 
 	RegisterCommand(Command{
 		Name:        "serve",
-		Usage:       "kite serve [porta]",
-		Description: "Roda a aplicação atual com 'go run .' (equivalente ao 'go run .' na mão).",
+		Usage:       "kite serve [port]",
+		Description: "Runs the current application with 'go run .' (equivalent to running it manually).",
 		Run:         runServe,
 	})
 }
 
 /**
- * printHelp imprime o banner da CLI, a lista de comandos registrados
- * (alinhados em colunas via tabwriter) e as opções globais disponíveis.
+ * printHelp prints the CLI banner, the list of registered commands
+ * (aligned in columns via tabwriter) and the global available options.
  */
 func printHelp() {
 	fmt.Print(Banner)
-	fmt.Printf("\n%sUso:%s\n  kite <comando> [argumentos]\n\n", Bold, Reset)
-	fmt.Printf("%sComandos disponíveis:%s\n", Bold, Reset)
+	fmt.Printf("\n%sUsage:%s\n  kite <command> [arguments]\n\n", Bold, Reset)
+	fmt.Printf("%sAvailable commands:%s\n", Bold, Reset)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	for _, cmd := range commands {
@@ -212,19 +212,19 @@ func printHelp() {
 	}
 	w.Flush()
 
-	fmt.Printf("\n%sOpções:%s\n", Bold, Reset)
-	fmt.Printf("  %s-v, --version%s    Exibe a versão atual da CLI.\n", FgGreen, Reset)
-	fmt.Printf("  %s-h, --help%s       Exibe este menu de ajuda.\n\n", FgGreen, Reset)
+	fmt.Printf("\n%sOptions:%s\n", Bold, Reset)
+	fmt.Printf("  %s-v, --version%s    Shows the current CLI version.\n", FgGreen, Reset)
+	fmt.Printf("  %s-h, --help%s       Shows this help menu.\n\n", FgGreen, Reset)
 }
 
 /**
- * printDotsLine imprime uma linha de status no estilo "tarefa .... OK",
- * preenchendo o espaço entre leftText e rightText com pontos até atingir
- * uma largura fixa. A cor de rightText muda conforme success.
+ * printDotsLine prints a status line like "task .... OK",
+ * filling the space between leftText and rightText with dots until a fixed width.
+ * The color of rightText changes according to success.
  *
- * @param leftText string - Texto à esquerda (ex.: nome do arquivo/tarefa).
- * @param rightText string - Texto à direita (ex.: "CRIADO", "PENDENTE").
- * @param success bool - Define a cor de rightText (verde ou amarelo).
+ * @param leftText string - Left text (eg: filename/task name).
+ * @param rightText string - Right text (eg: "CREATED", "PENDING").
+ * @param success bool - Defines the color of rightText (green or yellow).
  */
 func printDotsLine(leftText string, rightText string, success bool) {
 	totalWidth := 65
@@ -247,79 +247,64 @@ func printDotsLine(leftText string, rightText string, success bool) {
 }
 
 // ----------------------------------------------------------------------
-// Implementação dos Comandos
+// Command implementations
 // ----------------------------------------------------------------------
 
 /**
- * runNewProject cria a estrutura de diretórios de um novo projeto Kite
+ * runNewProject creates the directory structure of a new Kite project
  * (controllers, models, middlewares, requests, migrations, seeders,
- * routes, views) e gera um main.go inicial já com uma rota de exemplo.
+ * routes, views) and generates a starter main.go with an example route.
  *
- * @param args []string - args[0] deve ser o nome do projeto/diretório a criar.
- * @return error
- */
-/**
- * runNewProject inicializa um novo projeto Kite completo: cria a
- * estrutura de diretórios (a mesma usada pelos comandos make:*), roda
- * "go mod init" para que o projeto seja um módulo Go válido desde já,
- * adiciona o Kite como dependência via "go get" e gera um main.go que
- * já compila, importando o pacote real do framework.
+ * runNewProject also runs "go mod init" so the project is a valid Go module,
+ * attempts to add the Kite dependency via "go get", and writes a main.go that
+ * imports the framework package.
  *
- * BUG CORRIGIDO: a versão anterior gerava um main.go que importava
- * "%s/core" — um pacote LOCAL que nunca existia dentro do projeto — e
- * chamava core.NewApp(), uma função que não existe no Kite (o construtor
- * real é kite.New()). Também não criava go.mod nenhum. Ou seja, todo
- * projeto gerado por "kite new" nascia sem compilar.
+ * Note: args[0] may be either the directory name or a full module path
+ * (eg: "github.com/your-user/my-app").
  *
- * @param args []string - args[0] é o nome do diretório OU um module path completo (ex.: "github.com/seu-usuario/minha-app").
+ * @param args []string - args[0] is the directory name OR a module path.
  * @return error
  */
 func runNewProject(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("informe o nome do projeto. Ex: kite new minha-app (ou kite new github.com/seu-usuario/minha-app)")
+		return fmt.Errorf("please provide the project name. Ex: kite new my-app (or kite new github.com/your-user/my-app)")
 	}
 
 	modulePath := args[0]
 	dirName := lastPathSegment(modulePath)
 
-	fmt.Printf("\n%s Criando estrutura do projeto [%s]...\n\n", BadgeInfo, dirName)
+	fmt.Printf("\n%s Creating project structure [%s]...\n\n", BadgeInfo, dirName)
 
 	dirs := []string{
 		dirName,
-		filepath.Join(dirName, "app", "controllers"),
-		filepath.Join(dirName, "app", "models"),
-		filepath.Join(dirName, "app", "middlewares"),
-		filepath.Join(dirName, "app", "requests"),
-		filepath.Join(dirName, "config"),
-		filepath.Join(dirName, "database", "migrations"),
-		filepath.Join(dirName, "database", "seeders"),
-		filepath.Join(dirName, "routes"),
+		filepath.Join(dirName, "controllers"),
+		filepath.Join(dirName, "models"),
+		filepath.Join(dirName, "database"),
 		filepath.Join(dirName, "views"),
 	}
 
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("falha ao criar diretório %s: %w", dir, err)
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
-	printDotsLine("Estrutura de diretórios", "CRIADA", true)
+	printDotsLine("Directory structure", "CREATED", true)
 
 	if err := initGoModule(dirName, modulePath); err != nil {
 		return err
 	}
-	printDotsLine("go.mod", "CRIADO", true)
+	printDotsLine("go.mod", "CREATED", true)
 
 	if err := addKiteDependency(dirName); err != nil {
-		// Não é fatal: o projeto já fica utilizável, só falta rodar
-		// "go get github.com/claudiovictors/kite" manualmente depois
-		// (provavelmente por falta de acesso à rede neste momento).
-		printDotsLine("go get github.com/claudiovictors/kite", "PULADO", false)
+		// Not fatal: the project is still usable, it only requires running
+		// "go get github.com/claudiovictors/kite" manually later (maybe no network).
+		printDotsLine("go get github.com/claudiovictors/kite", "SKIPPED", false)
 		fmt.Printf("  %s%v%s\n", FgYellow, err, Reset)
 	} else {
-		printDotsLine("Dependência do Kite", "ADICIONADA", true)
+		printDotsLine("Kite dependency", "ADDED", true)
 	}
 
-	mainContent := fmt.Sprintf(`package main
+	mainContent := `package main
 
 import (
 	"log"
@@ -329,36 +314,31 @@ import (
 
 func main() {
 	app := kite.New()
+	app.Use(kite.CORS())
 
 	app.Get("/", func(req kite.Request, res kite.Response) error {
-		return res.Json(kite.Map{
-			"app":    %q,
-			"status": "online",
-		})
+		return res.Send("Hello, World!")
 	})
 
-	log.Println("⚡ Servidor Kite rodando na porta :8080")
-	if err := app.Listen(":8080"); err != nil {
-		log.Fatal(err)
-	}
+	log.Fatal(app.Listen(":3000"))
 }
-`, dirName)
+`
 
 	if err := os.WriteFile(filepath.Join(dirName, "main.go"), []byte(mainContent), 0644); err != nil {
-		return fmt.Errorf("falha ao criar main.go: %w", err)
+		return fmt.Errorf("failed to create main.go: %w", err)
 	}
-	printDotsLine("Arquivo main.go", "CRIADO", true)
+	printDotsLine("File main.go", "CREATED", true)
 
-	fmt.Printf("\n%s Projeto criado com sucesso. Digite %scd %s%s para começar.\n\n", BadgeSuccess, Bold, dirName, Reset)
+	fmt.Printf("\n%s Project created successfully. Type %scd %s%s to get started.\n\n", BadgeSuccess, Bold, dirName, Reset)
 	return nil
 }
 
 /**
- * lastPathSegment devolve o último segmento de um module path (o trecho
- * depois da última "/"), usado como nome do diretório do projeto. Se
- * modulePath não tiver "/", devolve o próprio valor sem alterações.
+ * lastPathSegment returns the last segment of a module path (the part
+ * after the last "/"), used as the project directory name. If the
+ * modulePath has no "/", returns the value unchanged.
  *
- * Exemplo: "github.com/seu-usuario/minha-app" -> "minha-app"
+ * Example: "github.com/your-user/my-app" -> "my-app"
  *
  * @param modulePath string
  * @return string
@@ -370,33 +350,30 @@ func lastPathSegment(modulePath string) string {
 }
 
 /**
- * initGoModule roda "go mod init <modulePath>" dentro do diretório do
- * projeto recém-criado, tornando-o um módulo Go válido imediatamente —
- * sem isso, o main.go gerado não tinha como compilar (não existia
- * go.mod nenhum no projeto).
+ * initGoModule runs "go mod init <modulePath>" inside the newly-created
+ * project directory, turning it into a valid Go module.
  *
- * @param dir string - Diretório do projeto já criado.
- * @param modulePath string - Module path a gravar no go.mod.
+ * @param dir string - Project directory.
+ * @param modulePath string - Module path to write in go.mod.
  * @return error
  */
 func initGoModule(dir, modulePath string) error {
 	cmd := exec.Command("go", "mod", "init", modulePath)
 	cmd.Dir = dir
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("falha ao rodar 'go mod init %s': %w\n%s", modulePath, err, output)
+		return fmt.Errorf("failed to run 'go mod init %s': %w\n%s", modulePath, err, output)
 	}
 	return nil
 }
 
 /**
- * addKiteDependency roda "go get github.com/claudiovictors/kite" dentro
- * do diretório do projeto, já que o main.go gerado importa
- * "github.com/claudiovictors/kite/core" e precisa dessa dependência
- * registrada no go.mod/go.sum para compilar. Depende de acesso à rede;
- * se falhar, o erro é devolvido para ser reportado como aviso (não é
- * motivo para abortar a criação do projeto).
+ * addKiteDependency runs "go get github.com/claudiovictors/kite" inside
+ * the project directory, since the generated main.go imports
+ * "github.com/claudiovictors/kite/core" and needs the dependency registered.
+ * This requires network access; if it fails the error is returned so the
+ * caller can show a warning (creation is not aborted).
  *
- * @param dir string - Diretório do projeto.
+ * @param dir string - Project directory.
  * @return error
  */
 func addKiteDependency(dir string) error {
@@ -409,20 +386,20 @@ func addKiteDependency(dir string) error {
 }
 
 /**
- * runMakeController gera um novo arquivo de controller em
- * app/controllers/<nome>_controller.go, com um método Index de exemplo.
+ * runMakeController generates a new controller file in controllers/<name>_controller.go
+ * with an example Index method.
  *
- * @param args []string - args[0] deve ser o nome do controller (ex.: "User").
+ * @param args []string - args[0] should be the controller name (eg: "User").
  * @return error
  */
 func runMakeController(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("informe o nome do controller. Ex: kite make:controller User")
+		return fmt.Errorf("please provide the controller name. Ex: kite make:controller User")
 	}
 
 	name := strings.Title(strings.ToLower(args[0]))
 	fileName := strings.ToLower(name) + "_controller.go"
-	path := filepath.Join("app", "controllers", fileName)
+	path := filepath.Join("controllers", fileName)
 
 	content := fmt.Sprintf(`package controllers
 
@@ -433,7 +410,7 @@ import (
 type %sController struct{}
 
 func (c *%sController) Index(req core.Request, res core.Response) error {
-	return res.Json(map[string]string{"message": "Lista de %s"})
+	return res.Json(map[string]string{"message": "List of %s"})
 }
 `, name, name, name)
 
@@ -441,21 +418,20 @@ func (c *%sController) Index(req core.Request, res core.Response) error {
 }
 
 /**
- * runMakeMiddleware gera um novo arquivo de middleware em
- * app/middlewares/<nome>.go, já no formato core.MiddlewareFunc esperado
- * por app.Use/Route.Middleware.
+ * runMakeMiddleware generates a new middleware file in middlewares/<name>.go,
+ * returning core.MiddlewareFunc expected by app.Use/Route.Middleware.
  *
- * @param args []string - args[0] deve ser o nome do middleware (ex.: "Auth").
+ * @param args []string - args[0] should be the middleware name (eg: "Auth").
  * @return error
  */
 func runMakeMiddleware(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("informe o nome do middleware. Ex: kite make:middleware Auth")
+		return fmt.Errorf("please provide the middleware name. Ex: kite make:middleware Auth")
 	}
 
 	name := strings.Title(strings.ToLower(args[0]))
 	fileName := strings.ToLower(name) + ".go"
-	path := filepath.Join("app", "middlewares", fileName)
+	path := filepath.Join("middlewares", fileName)
 
 	content := fmt.Sprintf(`package middlewares
 
@@ -476,20 +452,20 @@ func %s() core.MiddlewareFunc {
 }
 
 /**
- * runMakeModel gera um novo arquivo de model em app/models/<nome>.go,
- * com os campos ID, CreatedAt e UpdatedAt já mapeados via tags db/json.
+ * runMakeModel generates a new model file in models/<name>.go,
+ * with ID, CreatedAt and UpdatedAt fields already mapped via tags db/json.
  *
- * @param args []string - args[0] deve ser o nome da model (ex.: "Product").
+ * @param args []string - args[0] should be the model name (eg: "Product").
  * @return error
  */
 func runMakeModel(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("informe o nome da model. Ex: kite make:model Product")
+		return fmt.Errorf("please provide the model name. Ex: kite make:model Product")
 	}
 
 	name := strings.Title(strings.ToLower(args[0]))
 	fileName := strings.ToLower(name) + ".go"
-	path := filepath.Join("app", "models", fileName)
+	path := filepath.Join("models", fileName)
 
 	content := fmt.Sprintf(`package models
 
@@ -506,18 +482,18 @@ type %s struct {
 }
 
 /**
- * runMakeMigration gera um arquivo de migration em
- * database/migrations/<timestamp>_<nome>.go, prefixado por timestamp para
- * garantir a ordem de execução. O conteúdo gerado é uma database.Migration
- * de verdade (Up/Down recebendo *database.Schema), pronta para ser
- * registrada num database.Migrator sem precisar editar a assinatura.
+ * runMakeMigration generates a migration file in
+ * database/migrations/<timestamp>_<name>.go, prefixed by a timestamp to
+ * guarantee execution order. The generated content is a real
+ * database.Migration (Up/Down receiving *database.Schema), ready to be
+ * registered in a database.Migrator without changing the signature.
  *
- * @param args []string - args[0] deve ser o nome da tabela/migration (ex.: "create_users_table").
+ * @param args []string - args[0] should be the table/migration name (eg: "create_users_table").
  * @return error
  */
 func runMakeMigration(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("informe o nome da tabela. Ex: kite make:migration create_users_table")
+		return fmt.Errorf("please provide the table name. Ex: kite make:migration create_users_table")
 	}
 
 	rawName := strings.ToLower(args[0])
@@ -538,8 +514,8 @@ func runMakeMigration(args []string) error {
 import "github.com/claudiovictors/kite/database"
 
 /**
- * %s cria a tabela "%s". Ajuste as colunas conforme o que sua aplicação
- * precisa e registre esta migration num database.Migrator no seu main():
+ * %s creates the table "%s". Adjust columns as your application needs
+ * and register this migration in a database.Migrator in your main():
  *
  *	migrator.Register(migrations.%s)
  */
@@ -561,17 +537,15 @@ var %s = database.Migration{
 }
 
 /**
- * runMakeSeeder gera um arquivo de seeder em
- * database/seeders/<nome>_seeder.go, já implementando database.Seeder
- * (método Run(db *database.DB) error) — pronto para ser registrado num
- * database.SeederRunner.
+ * runMakeSeeder generates a seeder file in database/seeders/<name>_seeder.go,
+ * already implementing database.Seeder (Run(db *database.DB) error).
  *
- * @param args []string - args[0] deve ser o nome do seeder (ex.: "Users").
+ * @param args []string - args[0] should be the seeder name (eg: "Users").
  * @return error
  */
 func runMakeSeeder(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("informe o nome do seeder. Ex: kite make:seeder Users")
+		return fmt.Errorf("please provide the seeder name. Ex: kite make:seeder Users")
 	}
 
 	name := strings.Title(strings.ToLower(args[0]))
@@ -585,14 +559,14 @@ import (
 )
 
 /**
- * %sSeeder popula a tabela correspondente com dados iniciais/de teste.
- * Registre-o num database.SeederRunner e chame seeder.Run() (via
- * database.RunCLI ou manualmente no seu main()).
+ * %sSeeder populates the corresponding table with initial/test data.
+ * Register it in a database.SeederRunner and call seeder.Run() (via
+ * database.RunCLI or manually in your main()).
  */
 type %sSeeder struct{}
 
 func (s *%sSeeder) Run(db *database.DB) error {
-	// Exemplo:
+	// Example:
 	//
 	// user := &models.User{Name: "Admin", Email: "admin@example.com"}
 	// return database.Create(db, user)
@@ -605,21 +579,20 @@ func (s *%sSeeder) Run(db *database.DB) error {
 }
 
 /**
- * runMakeRequest gera um arquivo de validação de request em
- * app/requests/<nome>_request.go, no estilo FormRequest do Laravel,
- * usando o pacote validation para as regras.
+ * runMakeRequest generates a request validation file in
+ * requests/<name>_request.go, FormRequest-style, using the validation package.
  *
- * @param args []string - args[0] deve ser o nome do request (ex.: "CreateUser").
+ * @param args []string - args[0] should be the request name (eg: "CreateUser").
  * @return error
  */
 func runMakeRequest(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("informe o nome do request. Ex: kite make:request CreateUser")
+		return fmt.Errorf("please provide the request name. Ex: kite make:request CreateUser")
 	}
 
 	name := strings.Title(strings.ToLower(args[0]))
 	fileName := strings.ToLower(name) + "_request.go"
-	path := filepath.Join("app", "requests", fileName)
+	path := filepath.Join("requests", fileName)
 
 	content := fmt.Sprintf(`package requests
 
@@ -629,28 +602,28 @@ import (
 )
 
 /**
- * %sRequest concentra as regras de validação de entrada para essa ação,
- * no estilo do FormRequest do Laravel. Chame Validate(req) no início do
- * handler e devolva 422 se Fails() for true.
+ * %sRequest concentrates the validation rules for this action,
+ * in Laravel FormRequest style. Call Validate(req) at the start of the
+ * handler and return 422 if Fails() is true.
  */
 type %sRequest struct{}
 
 /**
- * Rules define as regras de validação por campo. Ajuste conforme os
- * campos reais esperados pela sua rota.
+ * Rules defines validation rules per field. Adjust for the real
+ * fields expected by your route.
  *
  * @return map[string]string
  */
 func (r *%sRequest) Rules() map[string]string {
 	return map[string]string{
-		// "nome":  "required|min:3",
+		// "name":  "required|min:3",
 		// "email": "required|email",
 	}
 }
 
 /**
- * Validate roda o validador sobre os dados de entrada da requisição
- * (JSON, formulário ou query string, via req.All()).
+ * Validate runs the validator over the request input
+ * (JSON, form or query string, via req.All()).
  *
  * @param req core.Request
  * @return *validation.Validator
@@ -664,21 +637,20 @@ func (r *%sRequest) Validate(req core.Request) *validation.Validator {
 }
 
 /**
- * runMakeTest gera um esqueleto de teste HTTP para um controller em
- * app/controllers/<nome>_test.go, usando httptest para simular a
- * requisição sem precisar subir um servidor real.
+ * runMakeTest generates an HTTP test skeleton for a controller in
+ * controllers/<name>_test.go, using httptest to simulate the request.
  *
- * @param args []string - args[0] deve ser o nome do controller (ex.: "User").
+ * @param args []string - args[0] should be the controller name (eg: "User").
  * @return error
  */
 func runMakeTest(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("informe o nome do teste. Ex: kite make:test User")
+		return fmt.Errorf("please provide the test name. Ex: kite make:test User")
 	}
 
 	name := strings.Title(strings.ToLower(args[0]))
 	fileName := strings.ToLower(name) + "_test.go"
-	path := filepath.Join("app", "controllers", fileName)
+	path := filepath.Join("controllers", fileName)
 	route := strings.ToLower(name)
 
 	content := fmt.Sprintf(`package controllers
@@ -692,8 +664,8 @@ import (
 )
 
 /**
- * TestKite%sIndex é um esqueleto de teste HTTP para o controller %s.
- * Ajuste a rota, o método e as asserções conforme o handler real.
+ * TestKite%sIndex is an HTTP test skeleton for the %s controller.
+ * Adjust the route, method and assertions according to the real handler.
  */
 func TestKite%sIndex(t *testing.T) {
 	app := core.NewApp()
@@ -706,7 +678,7 @@ func TestKite%sIndex(t *testing.T) {
 	app.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf("esperava status 200, recebeu %%d", rec.Code)
+		t.Fatalf("expected status 200, got %%d", rec.Code)
 	}
 }
 `, name, name, name, name, route, route)
@@ -715,12 +687,10 @@ func TestKite%sIndex(t *testing.T) {
 }
 
 /**
- * runMigrate executa as migrações pendentes da aplicação atual. A CLI
- * global não tem acesso à conexão do banco nem às Migration registradas em
- * memória — só o binário da sua aplicação tem. Por isso este comando só
- * repassa a chamada via runAppCommand, que roda "go run . migrate" no
- * diretório atual; a execução de verdade acontece dentro do seu main(),
- * através de database.RunCLI (veja kite/database/cli.go).
+ * runMigrate executes pending migrations for the current application. The
+ * global CLI has no access to the DB connection nor to migrations registered
+ * in memory — only your application's binary has. Therefore this command
+ * forwards the call via runAppCommand, which runs "go run . migrate".
  *
  * @param args []string
  * @return error
@@ -730,8 +700,8 @@ func runMigrate(args []string) error {
 }
 
 /**
- * runMigrateStatus mostra o estado (executada/pendente) de cada migração
- * registrada na aplicação atual. Veja runMigrate para o porquê do repasse.
+ * runMigrateStatus shows the status (ran/pending) of each migration
+ * registered in the current application. See runMigrate for why this is forwarded.
  *
  * @param args []string
  * @return error
@@ -741,9 +711,8 @@ func runMigrateStatus(args []string) error {
 }
 
 /**
- * runMigrateRollback reverte o último lote de migrações da aplicação atual
- * (ou os últimos N lotes, se um número for passado como argumento). Veja
- * runMigrate para o porquê do repasse.
+ * runMigrateRollback rolls back the last batch of migrations in the current
+ * application (or the last N batches, if a number is provided). See runMigrate.
  *
  * @param args []string
  * @return error
@@ -753,8 +722,8 @@ func runMigrateRollback(args []string) error {
 }
 
 /**
- * runSeed executa os seeders registrados na aplicação atual, através de
- * database.SeederRunner. Veja runMigrate para o porquê do repasse.
+ * runSeed executes seeders registered in the current application via
+ * database.SeederRunner. See runMigrate for the forwarding rationale.
  *
  * @param args []string
  * @return error
@@ -764,19 +733,18 @@ func runSeed(args []string) error {
 }
 
 /**
- * runAppCommand roda a aplicação atual com "go run . <command> [args...]",
- * repassando stdout/stderr/stdin diretamente para o terminal. A aplicação
- * precisa chamar database.RunCLI(os.Args[1:], migrator, seeder) no início
- * do seu main() para que o comando seja reconhecido e executado de verdade
- * — sem isso, "go run ." simplesmente sobe o servidor normalmente e ignora
- * o argumento extra.
+ * runAppCommand runs the current application with "go run . <command> [args...]",
+ * forwarding stdout/stderr/stdin directly to the terminal. The application
+ * must call database.RunCLI(os.Args[1:], migrator, seeder) in its main() so
+ * the command is recognized and executed — otherwise "go run ." will simply
+ * start the server and ignore the extra argument.
  *
- * @param command string - Nome do comando reconhecido por database.RunCLI.
- * @param args []string - Argumentos extras (ex.: número de steps do rollback).
+ * @param command string - Name of the command recognized by database.RunCLI.
+ * @param args []string - Extra arguments (eg: rollback steps).
  * @return error
  */
 func runAppCommand(command string, args []string) error {
-	fmt.Printf("\n%s Repassando para a aplicação: go run . %s\n\n", BadgeInfo, strings.TrimSpace(command+" "+strings.Join(args, " ")))
+	fmt.Printf("\n%s Forwarding to the application: go run . %s\n\n", BadgeInfo, strings.TrimSpace(command+" "+strings.Join(args, " ")))
 
 	cmdArgs := append([]string{"run", "."}, append([]string{command}, args...)...)
 	cmd := exec.Command("go", cmdArgs...)
@@ -785,19 +753,18 @@ func runAppCommand(command string, args []string) error {
 	cmd.Stdin = os.Stdin
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("falha ao executar %q na aplicação: %w (você chamou database.RunCLI(os.Args[1:], ...) no seu main()?)", command, err)
+		return fmt.Errorf("failed to execute %q in the application: %w (did you call database.RunCLI(os.Args[1:], ...) in your main()?)", command, err)
 	}
 	return nil
 }
 
 /**
- * runServe roda a aplicação atual com "go run .", repassando
- * stdout/stderr/stdin diretamente para o terminal (equivalente a rodar o
- * comando na mão, mas com uma saída de boot consistente com o resto da
- * CLI). Um argumento opcional de porta é exposto via variável de
- * ambiente PORT, caso sua aplicação leia kite.Env("PORT", "8080") no boot.
+ * runServe runs the current application with "go run .", forwarding
+ * stdout/stderr/stdin directly to the terminal (equivalent to running
+ * the command manually). An optional port argument is exposed via the
+ * PORT environment variable, in case your app reads kite.Env("PORT", "8080") on boot.
  *
- * @param args []string - args[0], se presente, define a porta (via env PORT).
+ * @param args []string - args[0], if present, sets the port (via env PORT).
  * @return error
  */
 func runServe(args []string) error {
@@ -806,7 +773,7 @@ func runServe(args []string) error {
 		port = args[0]
 	}
 
-	fmt.Printf("\n%s Iniciando aplicação com 'go run .' (PORT=%s)...\n\n", BadgeInfo, port)
+	fmt.Printf("\n%s Starting application with 'go run .' (PORT=%s)...\n\n", BadgeInfo, port)
 
 	cmd := exec.Command("go", "run", ".")
 	cmd.Env = append(os.Environ(), "PORT="+port)
@@ -815,33 +782,33 @@ func runServe(args []string) error {
 	cmd.Stdin = os.Stdin
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("falha ao rodar a aplicação: %w", err)
+		return fmt.Errorf("failed to run the application: %w", err)
 	}
 	return nil
 }
 
 /**
- * generateFileWithArtisanOutput cria os diretórios necessários e grava um
- * novo arquivo com o conteúdo informado, recusando sobrescrever um
- * arquivo já existente, e imprime uma saída de status no estilo Artisan.
+ * generateFileWithArtisanOutput creates necessary directories and writes a
+ * new file with the provided content, refusing to overwrite an existing file,
+ * and prints Artisan-style status output.
  *
- * @param resourceType string - Nome exibido do tipo de recurso (ex.: "Controller").
- * @param path string - Caminho completo do arquivo a criar.
- * @param content string - Conteúdo a ser escrito no arquivo.
+ * @param resourceType string - Display name of the resource (eg: "Controller").
+ * @param path string - Full path of the file to create.
+ * @param content string - Content to write to the file.
  * @return error
  */
 func generateFileWithArtisanOutput(resourceType string, path string, content string) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("erro ao criar diretório %s: %w", dir, err)
+		return fmt.Errorf("error creating directory %s: %w", dir, err)
 	}
 
 	if _, err := os.Stat(path); err == nil {
-		return fmt.Errorf("o arquivo [%s] já existe", path)
+		return fmt.Errorf("the file [%s] already exists", path)
 	}
 
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		return fmt.Errorf("erro ao escrever arquivo [%s]: %w", path, err)
+		return fmt.Errorf("error writing file [%s]: %w", path, err)
 	}
 
 	fmt.Println()
