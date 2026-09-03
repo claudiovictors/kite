@@ -1,43 +1,50 @@
 ## [Unreleased]
 
-### Corrigido
-- **`template`**: Removida a variável não utilizada `pattern` em `engine.go` e corrigida a mensagem de erro de "view não encontrada" para exibir a extensão correta.
-- **`template`**: Removida a regex de fallback ambígua `foreachDirective` em `directives.go`, garantindo que apenas a sintaxe estrita `@foreach($var in collection)` seja suportada (evita geração silenciosa de templates Go inválidos).
+### Added
+- **`examples`**: Added a new HTML template example (`examples/views/hello.html`) using Kite's Blade-like template engine, styled with Pico CSS classless.
+- **`examples`**: Refactored `examples/main.go` to remove duplicate code and extract mock data to a package-level variable.
+
+### Changed
+- **`docs`**: Translated the entire `CHANGELOG.md` and inline comments in `examples/main.go` to English for broader accessibility.
+
+### Fixed
+- **`template`**: Removed the unused variable `pattern` in `engine.go` and fixed the "view not found" error message to display the correct extension.
+- **`template`**: Removed the ambiguous fallback regex `foreachDirective` in `directives.go`, ensuring that only the strict syntax `@foreach($var in collection)` is supported (prevents silent generation of invalid Go templates).
 
 ## [1.0.4] - 2026-08-31
 
-### Adicionado
-- **Documentação interativa com Scalar** (`docs`, estilo FastAPI): o Kite agora gera automaticamente a especificação **OpenAPI 3.1** a partir das rotas registradas e serve a interface interativa do **Scalar** em `/docs` (configurável via `kite.Config.DocsURL`). O schema bruto fica disponível em `/openapi.json`.
-- **`kite.Config`**: struct de configuração inicial da aplicação (`Title`, `Version`, `DocsURL`, `ScalarLayout`, `ScalarTheme`), passada em `kite.New(kite.Config{...})`.
-- **Metadados de rota encadeáveis**: `.Summary(text)`, `.Tags(names...)`, `.Body(dto)` e `.Response(status, dto)`, permitindo descrever cada endpoint (resumo, agrupamento por tags, schema de entrada/saída) direto no encadeamento de `app.Post/Get/...`.
-- **Tags de struct para OpenAPI**: suporte a `doc` (descrição do campo), `example` (valor de exemplo) e `format` (ex: `email`) nas structs de DTO/response, usadas na geração automática do schema.
-- **Temas do Scalar**: `ScalarTheme` com diversas opções pré-definidas (ex: `kite.ThemePurple`), aplicadas na UI de `/docs`.
-- **Layout do Scalar**: `ScalarLayout` com `"classic"` (padrão, mais próximo do Swagger tradicional) ou `"modern"` (mais focado em clientes de API).
+### Added
+- **Interactive documentation with Scalar** (`docs`, FastAPI style): Kite now automatically generates the **OpenAPI 3.1** specification from registered routes and serves the interactive **Scalar** interface at `/docs` (configurable via `kite.Config.DocsURL`). The raw schema is available at `/openapi.json`.
+- **`kite.Config`**: initial application configuration struct (`Title`, `Version`, `DocsURL`, `ScalarLayout`, `ScalarTheme`), passed in `kite.New(kite.Config{...})`.
+- **Chainable route metadata**: `.Summary(text)`, `.Tags(names...)`, `.Body(dto)` and `.Response(status, dto)`, allowing you to describe each endpoint (summary, tagging, input/output schema) directly in the `app.Post/Get/...` chaining.
+- **Struct tags for OpenAPI**: support for `doc` (field description), `example` (example value) and `format` (e.g. `email`) in DTO/response structs, used in automatic schema generation.
+- **Scalar Themes**: `ScalarTheme` with several pre-defined options (e.g. `kite.ThemePurple`), applied in the `/docs` UI.
+- **Scalar Layout**: `ScalarLayout` with `"classic"` (default, closer to traditional Swagger) or `"modern"` (more focused on API clients).
 
-### Créditos
-- Recurso implementado em colaboração — PR revisado e integrado junto com [Carlos Felipe Araújo](https://github.com/carlosxfelipe), que trouxe a implementação inicial da geração do schema OpenAPI e da integração com o Scalar.
+### Credits
+- Feature implemented in collaboration — PR reviewed and integrated together with [Carlos Felipe Araújo](https://github.com/carlosxfelipe), who brought the initial implementation of OpenAPI schema generation and integration with Scalar.
 
 ## [1.0.2] - 2026-08-29
 
-### Adicionado
-- **Validação de input** (`validation`): `validation.Make(data, rules)` no estilo Laravel Validator, com regras `required`, `email`, `min`, `max`, `numeric`, `integer`, `boolean`, `string`, `alpha`, `alpha_num`, `in`, `same`, `confirmed`, `url`, `uuid`, `regex`, `array`, `nullable`, mensagens customizáveis e suporte a regras próprias via `validation.RegisterRule`.
-- **Migrations estilo Laravel** (`database`): `Schema`/`Blueprint`/`Migrator`, com `Create`, `Table`, `Drop`, `DropIfExists`, colunas tipadas (`ID`, `String`, `Text`, `Integer`, `BigInteger`, `Float`, `Decimal`, `Boolean`, `Date`, `Timestamp`, `Timestamps`, `SoftDeletes`, `ForeignID().References().On()`), modificadores (`Nullable`, `Unique`, `Default`), e `Migrator.Run/Rollback/Status` com controle de batches.
-- **Seeders** (`database`): `Seeder`, `NamedSeeder` e `SeederRunner` para popular dados iniciais/de teste.
-- **`database.RunCLI`**: dispatcher para ligar `migrate`, `migrate:status`, `migrate:rollback` e `seed` de verdade ao `main()` da aplicação, usado pela CLI global via `go run . <comando>`.
-- **CORS** (`core/cors.go`): middleware `kite.CORS(config...)` com origem/métodos/headers configuráveis, suporte a credenciais e preflight automático.
-- **Registro automático de OPTIONS**: toda rota registrada (`Get`, `Post`, ...) agora também registra um handler `OPTIONS` silencioso na mesma cadeia de middlewares, permitindo que `CORS()` responda preflights de verdade.
-- **Middleware por rota e rotas nomeadas**: `app.Get(...).Middleware(...)`, `.Name(...)` e `app.URLFor(name, params)` para reverse routing (com parâmetros extras viram query string).
-- **`Request.Input`/`Has`/`All`/`Only`/`Except`**: acesso unificado a dados de entrada (JSON, formulário e query string), no estilo `$request->input()` do Laravel. `GetBody()` como alias de `Body()`.
-- **`Response.Render(name, data)`**: renderização de views via `app.LoadViews(dir, ext)`, sem precisar passar o engine manualmente. `RenderWith(engine, name, data)` para casos com múltiplos engines.
-- **`Response.Redirect()` encadeável**: `res.Redirect().To(url)`, `.Permanently(url)`, `.Back(req)`.
+### Added
+- **Input validation** (`validation`): `validation.Make(data, rules)` in Laravel Validator style, with rules `required`, `email`, `min`, `max`, `numeric`, `integer`, `boolean`, `string`, `alpha`, `alpha_num`, `in`, `same`, `confirmed`, `url`, `uuid`, `regex`, `array`, `nullable`, customizable messages and support for custom rules via `validation.RegisterRule`.
+- **Laravel style migrations** (`database`): `Schema`/`Blueprint`/`Migrator`, with `Create`, `Table`, `Drop`, `DropIfExists`, typed columns (`ID`, `String`, `Text`, `Integer`, `BigInteger`, `Float`, `Decimal`, `Boolean`, `Date`, `Timestamp`, `Timestamps`, `SoftDeletes`, `ForeignID().References().On()`), modifiers (`Nullable`, `Unique`, `Default`), and `Migrator.Run/Rollback/Status` with batch control.
+- **Seeders** (`database`): `Seeder`, `NamedSeeder` and `SeederRunner` to populate initial/test data.
+- **`database.RunCLI`**: dispatcher to bind real `migrate`, `migrate:status`, `migrate:rollback` and `seed` to the application's `main()`, used by the global CLI via `go run . <command>`.
+- **CORS** (`core/cors.go`): `kite.CORS(config...)` middleware with configurable origin/methods/headers, credentials support and automatic preflight.
+- **Automatic OPTIONS registration**: every registered route (`Get`, `Post`, ...) now also registers a silent `OPTIONS` handler in the same middleware chain, allowing `CORS()` to properly respond to preflights.
+- **Middleware per route and named routes**: `app.Get(...).Middleware(...)`, `.Name(...)` and `app.URLFor(name, params)` for reverse routing (extra parameters become query string).
+- **`Request.Input`/`Has`/`All`/`Only`/`Except`**: unified access to input data (JSON, form and query string), in Laravel's `$request->input()` style. `GetBody()` as an alias for `Body()`.
+- **`Response.Render(name, data)`**: rendering views via `app.LoadViews(dir, ext)`, without needing to pass the engine manually. `RenderWith(engine, name, data)` for cases with multiple engines.
+- **Chainable `Response.Redirect()`**: `res.Redirect().To(url)`, `.Permanently(url)`, `.Back(req)`.
 - **`core/helpers.go`**: `kite.Map`, `kite.Env`, `kite.Must`, `kite.Ptr`, `kite.Coalesce`, `kite.Contains`, `kite.Truncate`, `kite.Slugify`, `kite.RandomString`, `kite.ToJSON`.
 - **CLI**: `make:seeder`, `make:request`, `make:test`, `serve`, `migrate`, `migrate:status`, `migrate:rollback`, `seed`.
 
-### Corrigido
-- Middlewares globais/de grupo rodando em duplicidade em rotas que usavam `.Middleware(...)` (o `rawHandler` guardado no node de rota já vinha com os middlewares base aplicados).
-- Preflight CORS (`OPTIONS`) devolvendo 404 por não existir nenhuma rota registrada para esse método.
-- `cmd/kite/main.go`: `runMakeModel` passava um argumento a mais pro `fmt.Sprintf` (`%s` único no template, dois `name` passados).
+### Fixed
+- Global/group middlewares running in duplicate on routes that used `.Middleware(...)` (the `rawHandler` stored in the route node already came with the base middlewares applied).
+- CORS preflight (`OPTIONS`) returning 404 because there was no route registered for this method.
+- `cmd/kite/main.go`: `runMakeModel` passed an extra argument to `fmt.Sprintf` (a single `%s` in the template, two `name`s passed).
 
-### Alterado
-- **Breaking**: `Response.Redirect(url string, code ...int) error` virou `Response.Redirect() *Redirector`, use `.To(url, code...)`.
-- **Breaking**: `Response.Render(engine, name, data)` virou `Response.Render(name, data)`, usando o engine configurado via `app.LoadViews`. O comportamento antigo (passar o engine na mão) está disponível em `RenderWith`.
+### Changed
+- **Breaking**: `Response.Redirect(url string, code ...int) error` became `Response.Redirect() *Redirector`, use `.To(url, code...)`.
+- **Breaking**: `Response.Render(engine, name, data)` became `Response.Render(name, data)`, using the configured engine via `app.LoadViews`. The old behavior (passing the engine manually) is available in `RenderWith`.
