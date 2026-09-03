@@ -3,7 +3,7 @@ package template
 import "regexp"
 
 /**
- * Expressões regulares compiladas para transpilado de diretivas estilo Blade em sintaxe html/template.
+ * Compiled regular expressions for transpiling Blade-style directives into html/template syntax.
  */
 var (
 	commentDirective       = regexp.MustCompile(`(?s)\{\{--.*?--\}\}`)
@@ -17,18 +17,15 @@ var (
 )
 
 /**
- * compileDirectives transpila a sintaxe amigável estilo Blade para a sintaxe nativa do html/template antes do parsing.
+ * compileDirectives transpiles the friendly Blade-style syntax to the native html/template syntax before parsing.
  *
- * A ordem das substituições é crítica: `foreachAssignDirective` é processada antes de `foreachDirective`
- * para evitar que a palavra reservada "in" seja capturada erroneamente como parte da expressão.
- *
- * Exemplo de transformação:
- *  @if(condicao)                       -> {{if condicao}}
+ * Transformation example:
+ *  @if(condition)                      -> {{if condition}}
  *  @foreach($post in .Posts)           -> {{range $post := .Posts}}
  *  @include("partials/header")         -> {{template "partials/header" .}}
  *
- * @param src string conteúdo bruto do arquivo de template.
- * @return string conteúdo convertido para sintaxe html/template.
+ * @param src string raw content of the template file.
+ * @return string content converted to html/template syntax.
  */
 func compileDirectives(src string) string {
 	src = commentDirective.ReplaceAllString(src, "")
