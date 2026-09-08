@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"runtime/debug"
 
 	"github.com/claudiovictors/kite/template"
 )
@@ -359,10 +360,26 @@ func (a *App) registerDocs() {
  * It passes the configured view engine (a.views, may be nil) to the generated Response
  * so that res.Render works inside handlers.
  *
+ * It also recovers from any panic raised while matching or executing a handler
+ * (nil pointer dereference, index out of range, etc). The panic is logged with
+ * its full stack trace, and the client receives a generic 500 JSON response
+ * instead of the connection being dropped and the whole process crashing.
+ *
  * @param {http.ResponseWriter} w - Native response writer.
  * @param {*http.Request} r - Native HTTP request pointer.
  */
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Deferred at the very top of the request lifecycle so it catches panics
+	// raised anywhere downstream: inside the matched handler, inside any
+	// middleware wrapping it, or even inside NotFoundHandler/ErrorHandler
+	// themselves if they were customized incorrectly.
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("kite: recovered panic in %s %s: %v\n%s", r.Method, r.URL.Path, err, debug.Stack())
+			http.Error(w, `{"error":"internal server error","status":500}`, http.StatusInternalServerError)
+		}
+	}()
+
 	handler, params, ok := a.router.Match(r.Method, r.URL.Path)
 	req := Request{Request: r, Params: params}
 	res := newResponse(w, r, a.views)

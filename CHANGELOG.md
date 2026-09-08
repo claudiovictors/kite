@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [1.0.6] - 2026-09-09
+
+### Added
+- **Panic recovery** (`core`): `App.ServeHTTP` now recovers from panics raised while matching or executing a handler (nil pointer dereference, index out of range, etc.). The panic is logged together with its full stack trace, and the client now receives a generic `500 Internal Server Error` JSON response instead of the whole process crashing. Previously, any unhandled panic inside a request handler would take down the entire server.
+
 ### Added
 - **`examples`**: Added a new HTML template example (`examples/views/hello.html`) using Kite's Blade-like template engine, styled with Pico CSS classless.
 - **`examples`**: Refactored `examples/main.go` to remove duplicate code and extract mock data to a package-level variable.

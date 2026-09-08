@@ -9,12 +9,12 @@ import (
 )
 
 /**
- * Erros estáticos retornados no fluxo de persistência de sessão.
+ * Static errors returned by the session persistence flow.
  */
-var ErrSessionNotFound = errors.New("auth: sessão não encontrada")
+var ErrSessionNotFound = errors.New("auth: session not found")
 
 /**
- * Session armazena a estrutura de dados e vigência da sessão ativa.
+ * Session holds the data and expiration window of an active session.
  */
 type Session struct {
 	ID        string
@@ -23,14 +23,14 @@ type Session struct {
 }
 
 /**
- * Expired checa se a sessão ultrapassou a janela temporal válida.
+ * Expired reports whether the session has passed its valid time window.
  */
 func (s *Session) Expired() bool {
 	return time.Now().After(s.ExpiresAt)
 }
 
 /**
- * Interface para desacoplamento da camada de armazenamento de sessões.
+ * Store decouples the session storage layer from its consumers.
  */
 type Store interface {
 	Get(id string) (*Session, error)
@@ -39,7 +39,8 @@ type Store interface {
 }
 
 /**
- * MemoryStore provê armazenamento em memória thread-safe com limpeza automática de expirados.
+ * MemoryStore provides thread-safe in-memory storage with automatic
+ * cleanup of expired sessions.
  */
 type MemoryStore struct {
 	mu       sync.RWMutex
@@ -48,9 +49,10 @@ type MemoryStore struct {
 }
 
 /**
- * NewMemoryStore instancia o armazenamento em memória e inicia a goroutine de varredura periódica.
+ * NewMemoryStore creates the in-memory store and starts the periodic
+ * garbage-collection goroutine.
  *
- * @param cleanupInterval Frequência em que a varredura por sessões expiradas é realizada.
+ * @param cleanupInterval How often the store scans for expired sessions.
  */
 func NewMemoryStore(cleanupInterval time.Duration) *MemoryStore {
 	store := &MemoryStore{
@@ -66,7 +68,7 @@ func NewMemoryStore(cleanupInterval time.Duration) *MemoryStore {
 }
 
 /**
- * Close encerra com segurança os recursos da store em memória (interrompe o GC).
+ * Close safely releases the store's resources (stops the GC goroutine).
  */
 func (m *MemoryStore) Close() {
 	if m.stopGC != nil {
@@ -75,7 +77,8 @@ func (m *MemoryStore) Close() {
 }
 
 /**
- * Get busca uma sessão ativa por ID. Retorna cópia isolada para evitar data races em mutações.
+ * Get looks up an active session by ID. Returns an isolated copy to avoid
+ * data races on mutation.
  */
 func (m *MemoryStore) Get(id string) (*Session, error) {
 	m.mu.RLock()
@@ -93,7 +96,7 @@ func (m *MemoryStore) Get(id string) (*Session, error) {
 		return nil, ErrSessionNotFound
 	}
 
-	// Deep copy de session.Data para garantir isolamento de memória
+	// Deep copy of session.Data to guarantee memory isolation.
 	dataCopy := make(map[string]interface{}, len(session.Data))
 	for k, v := range session.Data {
 		dataCopy[k] = v
@@ -110,7 +113,7 @@ func (m *MemoryStore) Get(id string) (*Session, error) {
 }
 
 /**
- * Save persiste ou atualiza os dados da sessão no repositório.
+ * Save persists or updates the session data in the repository.
  */
 func (m *MemoryStore) Save(session *Session) error {
 	m.mu.Lock()
@@ -130,7 +133,7 @@ func (m *MemoryStore) Save(session *Session) error {
 }
 
 /**
- * Delete remove explicitamente uma sessão da memória pelo seu ID.
+ * Delete explicitly removes a session from memory by its ID.
  */
 func (m *MemoryStore) Delete(id string) error {
 	m.mu.Lock()
@@ -140,7 +143,8 @@ func (m *MemoryStore) Delete(id string) error {
 }
 
 /**
- * startGC executa varreduras periódicas para remoção de chaves inativas sem bloquear leituras massivas.
+ * startGC runs periodic sweeps to remove inactive keys without blocking
+ * concurrent reads.
  */
 func (m *MemoryStore) startGC(interval time.Duration) {
 	ticker := time.NewTicker(interval)
@@ -164,7 +168,8 @@ func (m *MemoryStore) startGC(interval time.Duration) {
 }
 
 /**
- * generateSessionID cria uma sequência aleatória criptograficamente segura de 32 bytes em Base64 URL-safe.
+ * generateSessionID creates a cryptographically secure 32-byte random
+ * sequence, encoded as Base64 URL-safe.
  */
 func generateSessionID() (string, error) {
 	buf := make([]byte, 32)
@@ -175,7 +180,8 @@ func generateSessionID() (string, error) {
 }
 
 /**
- * SessionManager coordena a integração entre a Store e os cookies da camada HTTP.
+ * SessionManager coordinates the integration between the Store and the
+ * HTTP cookie layer.
  */
 type SessionManager struct {
 	Store      Store
@@ -187,7 +193,7 @@ type SessionManager struct {
 }
 
 /**
- * NewSessionManager constrói o gerenciador configurado com parâmetros padrão seguros.
+ * NewSessionManager builds a manager configured with safe defaults.
  */
 func NewSessionManager(store Store) *SessionManager {
 	return &SessionManager{

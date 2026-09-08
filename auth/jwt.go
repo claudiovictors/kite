@@ -11,17 +11,17 @@ import (
 )
 
 /**
- * Definição dos erros padrão retornados durante o ciclo de vida do JWT.
+ * Standard errors returned throughout the JWT lifecycle.
  */
 var (
-	ErrInvalidToken     = errors.New("auth: token JWT inválido")
-	ErrInvalidSignature = errors.New("auth: assinatura do token inválida")
-	ErrTokenExpired     = errors.New("auth: token expirado")
-	ErrUnsupportedAlg   = errors.New("auth: algoritmo de assinatura não suportado")
+	ErrInvalidToken     = errors.New("auth: invalid JWT token")
+	ErrInvalidSignature = errors.New("auth: invalid token signature")
+	ErrTokenExpired     = errors.New("auth: token expired")
+	ErrUnsupportedAlg   = errors.New("auth: unsupported signing algorithm")
 )
 
 /**
- * Estrutura interna fixa para o cabeçalho JWT em conformidade com HS256.
+ * jwtHeader is the fixed internal structure for the JWT header, compliant with HS256.
  */
 type jwtHeader struct {
 	Alg string `json:"alg"`
@@ -31,18 +31,19 @@ type jwtHeader struct {
 const jwtHeaderHS256 = `{"alg":"HS256","typ":"JWT"}`
 
 /**
- * MapClaims representa o conjunto flexível de declarações (claims) do token.
+ * MapClaims represents the flexible set of claims carried by the token.
  */
 type MapClaims map[string]interface{}
 
 /**
- * NewClaims instancia um MapClaims preenchendo automaticamente os campos padrão ("sub", "iat", "exp").
+ * NewClaims builds a MapClaims instance, automatically filling in the
+ * standard fields ("sub", "iat", "exp").
  *
- * @param subject Identificador do sujeito (ex.: ID do usuário).
- * @param ttl Tempo de vida do token (Time to Live).
- * @param extra Mapeamento de claims adicionais a serem incorporados.
+ * @param subject Subject identifier (e.g. user ID).
+ * @param ttl     Token time to live.
+ * @param extra   Additional claims to merge into the result.
  *
- * @return Instância de MapClaims devidamente configurada.
+ * @return A properly configured MapClaims instance.
  */
 func NewClaims(subject interface{}, ttl time.Duration, extra MapClaims) MapClaims {
 	now := time.Now()
@@ -58,21 +59,21 @@ func NewClaims(subject interface{}, ttl time.Duration, extra MapClaims) MapClaim
 }
 
 /**
- * Codifica bytes para string em formato Base64 URL Safe sem preenchimento (padding).
+ * base64URLEncode encodes bytes into an unpadded Base64 URL-safe string.
  */
 func base64URLEncode(data []byte) string {
 	return base64.RawURLEncoding.EncodeToString(data)
 }
 
 /**
- * Decodifica string em formato Base64 URL Safe sem preenchimento (padding).
+ * base64URLDecode decodes an unpadded Base64 URL-safe string.
  */
 func base64URLDecode(s string) ([]byte, error) {
 	return base64.RawURLEncoding.DecodeString(s)
 }
 
 /**
- * Calcula a assinatura HMAC-SHA256 para o conjunto header.payload fornecido.
+ * sign computes the HMAC-SHA256 signature for the given header.payload string.
  */
 func sign(headerAndPayload string, secret []byte) []byte {
 	mac := hmac.New(sha256.New, secret)
@@ -81,12 +82,12 @@ func sign(headerAndPayload string, secret []byte) []byte {
 }
 
 /**
- * Sign gera um token JWT assinado utilizando a chave secreta e o algoritmo HS256.
+ * Sign generates a JWT token signed with the given secret key using HS256.
  *
- * @param claims Estrutura MapClaims contendo as informações do payload.
- * @param secret Chave simétrica utilizada na assinatura.
+ * @param claims MapClaims structure containing the payload information.
+ * @param secret Symmetric key used to sign the token.
  *
- * @return String contendo o token formatado (header.payload.signature) ou erro.
+ * @return The formatted token string (header.payload.signature), or an error.
  */
 func Sign(claims MapClaims, secret []byte) (string, error) {
 	payloadBytes, err := json.Marshal(claims)
@@ -104,12 +105,12 @@ func Sign(claims MapClaims, secret []byte) (string, error) {
 }
 
 /**
- * Verify analisa, valida a integridade e extrai as claims de um token JWT.
+ * Verify parses a JWT token, validates its integrity and extracts its claims.
  *
- * @param tokenString Token codificado em formato string.
- * @param secret Chave simétrica para validação do HMAC.
+ * @param tokenString The encoded token string.
+ * @param secret      Symmetric key used to validate the HMAC signature.
  *
- * @return Instância de MapClaims com os dados do token ou erro de validação.
+ * @return A MapClaims instance with the decoded token data, or a validation error.
  */
 func Verify(tokenString string, secret []byte) (MapClaims, error) {
 	parts := strings.Split(tokenString, ".")
@@ -162,7 +163,7 @@ func Verify(tokenString string, secret []byte) (MapClaims, error) {
 }
 
 /**
- * Normaliza tipos numéricos variados para int64 com segurança.
+ * toInt64 safely normalizes various numeric types into int64.
  */
 func toInt64(v interface{}) (int64, bool) {
 	switch n := v.(type) {

@@ -10,7 +10,7 @@ import (
 )
 
 /**
- * Definição de chave privada para evitar colisões no contexto HTTP.
+ * contextKey is a private key type used to avoid collisions in the HTTP context.
  */
 type contextKey string
 
@@ -20,7 +20,8 @@ const (
 )
 
 /**
- * withContext clona a requisição HTTP injetando um novo contexto contendo os dados de autenticação.
+ * withContext clones the HTTP request, injecting a new context that
+ * carries the authentication data.
  */
 func withContext(req kite.Request, ctx context.Context) kite.Request {
 	req.Request = req.Request.WithContext(ctx)
@@ -30,17 +31,18 @@ func withContext(req kite.Request, ctx context.Context) kite.Request {
 // --- JWT Middleware ----------------------------------------------------
 
 /**
- * RequireJWT intercepta requisições exigindo um token Bearer válido no header Authorization.
+ * RequireJWT intercepts requests, requiring a valid Bearer token in the
+ * Authorization header.
  *
- * @param secret Chave simétrica utilizada para validar a assinatura do JWT.
- * @return MiddlewareFunc compatível com o ecossistema Kite.
+ * @param secret Symmetric key used to validate the JWT signature.
+ * @return A MiddlewareFunc compatible with the Kite ecosystem.
  */
 func RequireJWT(secret []byte) kite.MiddlewareFunc {
 	return func(next kite.HandlerFunc) kite.HandlerFunc {
 		return func(req kite.Request, res kite.Response) error {
 			header := req.Header("Authorization")
 			if header == "" || !strings.HasPrefix(header, "Bearer ") {
-				return unauthorized(res, "token ausente (esperado: Authorization: Bearer <token>)")
+				return unauthorized(res, "missing token (expected: Authorization: Bearer <token>)")
 			}
 			tokenString := strings.TrimPrefix(header, "Bearer ")
 
@@ -56,7 +58,7 @@ func RequireJWT(secret []byte) kite.MiddlewareFunc {
 }
 
 /**
- * ClaimsFromContext recupera os claims decodificados do contexto da requisição.
+ * ClaimsFromContext retrieves the decoded claims from the request context.
  */
 func ClaimsFromContext(ctx context.Context) (MapClaims, bool) {
 	claims, ok := ctx.Value(claimsContextKey).(MapClaims)
@@ -66,27 +68,28 @@ func ClaimsFromContext(ctx context.Context) (MapClaims, bool) {
 // --- Session Middleware ------------------------------------------------
 
 /**
- * RequireSession valida a existência e a vigência temporal de uma sessão armazenada em cookie.
+ * RequireSession validates the existence and the expiration window of a
+ * session stored via cookie.
  *
- * @param manager Ponteiro para o gerenciador de sessões ativo.
- * @return MiddlewareFunc de autenticação por sessão.
+ * @param manager Pointer to the active session manager.
+ * @return A MiddlewareFunc for session-based authentication.
  */
 func RequireSession(manager *SessionManager) kite.MiddlewareFunc {
 	return func(next kite.HandlerFunc) kite.HandlerFunc {
 		return func(req kite.Request, res kite.Response) error {
 			cookieValue, ok := req.Cookie(manager.CookieName)
 			if !ok {
-				return unauthorized(res, "sessão ausente")
+				return unauthorized(res, "missing session")
 			}
 
 			session, err := manager.Store.Get(cookieValue)
 			if err != nil || session == nil {
-				return unauthorized(res, "sessão inválida")
+				return unauthorized(res, "invalid session")
 			}
 
 			if time.Now().After(session.ExpiresAt) {
 				_ = manager.Store.Delete(cookieValue)
-				return unauthorized(res, "sessão expirada")
+				return unauthorized(res, "session expired")
 			}
 
 			ctx := context.WithValue(req.Ctx(), sessionContextKey, session)
@@ -96,17 +99,18 @@ func RequireSession(manager *SessionManager) kite.MiddlewareFunc {
 }
 
 /**
- * SessionFromContext recupera a estrutura de Session ativa contida no contexto.
+ * SessionFromContext retrieves the active Session struct from the context.
  */
 func SessionFromContext(ctx context.Context) (*Session, bool) {
 	session, ok := ctx.Value(sessionContextKey).(*Session)
 	return session, ok
 }
 
-// --- Helpers de Autenticação -------------------------------------------
+// --- Authentication Helpers ---------------------------------------------
 
 /**
- * Login gera um identificador único, persiste a sessão na Store e grava o cookie HTTP na resposta.
+ * Login generates a unique identifier, persists the session in the Store,
+ * and writes the HTTP cookie onto the response.
  */
 func (m *SessionManager) Login(res kite.Response, data map[string]interface{}) error {
 	id, err := generateSessionID()
@@ -137,7 +141,8 @@ func (m *SessionManager) Login(res kite.Response, data map[string]interface{}) e
 }
 
 /**
- * Logout inativa a sessão na Store e invalida o cookie do cliente imediatamente.
+ * Logout invalidates the session in the Store and clears the client's
+ * cookie immediately.
  */
 func (m *SessionManager) Logout(req kite.Request, res kite.Response) error {
 	if cookieValue, ok := req.Cookie(m.CookieName); ok {
@@ -158,11 +163,11 @@ func (m *SessionManager) Logout(req kite.Request, res kite.Response) error {
 }
 
 /**
- * unauthorized padroniza a resposta HTTP 401 JSON utilizando o formato estipulado pelo Kite.
+ * unauthorized standardizes the 401 JSON response using Kite's error format.
  */
 func unauthorized(res kite.Response, reason string) error {
 	return res.Status(http.StatusUnauthorized).WithJson(kite.ErrorResponse{
-		Error:  "não autorizado: " + reason,
+		Error:  "unauthorized: " + reason,
 		Status: http.StatusUnauthorized,
 	})
 }

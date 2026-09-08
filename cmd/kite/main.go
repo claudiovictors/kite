@@ -404,12 +404,12 @@ func runMakeController(args []string) error {
 	content := fmt.Sprintf(`package controllers
 
 import (
-	"github.com/claudiovictors/kite/core"
+	kite "github.com/claudiovictors/kite/core"
 )
 
 type %sController struct{}
 
-func (c *%sController) Index(req core.Request, res core.Response) error {
+func (c *%sController) Index(req kite.Request, res kite.Response) error {
 	return res.Json(map[string]string{"message": "List of %s"})
 }
 `, name, name, name)
@@ -419,7 +419,7 @@ func (c *%sController) Index(req core.Request, res core.Response) error {
 
 /**
  * runMakeMiddleware generates a new middleware file in middlewares/<name>.go,
- * returning core.MiddlewareFunc expected by app.Use/Route.Middleware.
+ * returning kite.MiddlewareFunc expected by app.Use/Route.Middleware.
  *
  * @param args []string - args[0] should be the middleware name (eg: "Auth").
  * @return error
@@ -436,12 +436,12 @@ func runMakeMiddleware(args []string) error {
 	content := fmt.Sprintf(`package middlewares
 
 import (
-	"github.com/claudiovictors/kite/core"
+	kite "github.com/claudiovictors/kite/core"
 )
 
-func %s() core.MiddlewareFunc {
-	return func(next core.HandlerFunc) core.HandlerFunc {
-		return func(req core.Request, res core.Response) error {
+func %s() kite.MiddlewareFunc {
+	return func(next kite.HandlerFunc) kite.HandlerFunc {
+		return func(req kite.Request, res kite.Response) error {
 			return next(req, res)
 		}
 	}
