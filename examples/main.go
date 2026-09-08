@@ -7,9 +7,9 @@ import (
 )
 
 type CreateUserDTO struct {
-	Name  string `json:"name" doc:"Nome completo do usuário" example:"Carlos Silva" validate:"required"`
-	Email string `json:"email" doc:"Endereço de e-mail válido" format:"email" example:"carlos@email.com" validate:"required"`
-	Role  string `json:"role" doc:"Cargo do usuário" example:"admin" default:"member"`
+	Name  string `json:"name" doc:"Full name of the user" example:"Carlos Silva" validate:"required"`
+	Email string `json:"email" doc:"Valid email address" format:"email" example:"carlos@email.com" validate:"required"`
+	Role  string `json:"role" doc:"User role" example:"admin" default:"member"`
 }
 
 type UserResponse struct {
@@ -19,60 +19,69 @@ type UserResponse struct {
 	Role  string `json:"role" example:"admin"`
 }
 
+var mockUsers = []UserResponse{
+	{ID: "1", Name: "Carlos Silva", Email: "carlos@email.com", Role: "admin"},
+	{ID: "2", Name: "Ana Souza", Email: "ana@email.com", Role: "member"},
+}
+
 func main() {
-	// Cria a aplicação Kite com OpenAPI 3.1 e Scalar embutidos
+	// Creates the Kite application with built-in OpenAPI 3.1 and Scalar
 	app := kite.New(kite.Config{
-		Title:        "Kite Store API",
-		Version:      "1.0.0",
-		Description:  "Demonstração de API em Go com documentação interativa via Scalar estilo FastAPI.",
+		Title:       "Kite Store API",
+		Version:     "1.0.0",
+		Description: "Go API demonstration with interactive documentation via FastAPI-style Scalar.",
 	})
 
-	// Rota básica
+	// Configure the template engine
+	if err := app.LoadViews("views", ".html"); err != nil {
+		log.Fatalf("Error loading views: %v", err)
+	}
+
+	// Basic route
 	app.Get("/", func(req kite.Request, res kite.Response) error {
 		return res.Json(kite.Map{
-			"message": "Bem-vindo ao Kite!",
+			"message": "Welcome to Kite!",
 			"docs":    "/docs",
 			"openapi": "/openapi.json",
 		})
 	}).
-		Summary("Healthcheck e boas-vindas").
-		Tags("Geral")
+		Summary("Healthcheck and welcome").
+		Tags("General")
 
-	// Listar usuários
+	// List users
 	app.Get("/users", func(req kite.Request, res kite.Response) error {
-		users := []UserResponse{
-			{ID: "1", Name: "Carlos Silva", Email: "carlos@email.com", Role: "admin"},
-			{ID: "2", Name: "Ana Souza", Email: "ana@email.com", Role: "member"},
-		}
-		return res.Json(users)
+		return res.Json(mockUsers)
 	}).
-		Summary("Listar todos os usuários").
-		Description("Retorna a lista completa de usuários cadastrados no sistema").
-		Tags("Usuários").
-		Response(200, []UserResponse{}, "Lista de usuários")
+		Summary("List all users").
+		Description("Returns the full list of users registered in the system").
+		Tags("Users").
+		Response(200, []UserResponse{}, "List of users")
 
-	// Buscar usuário por ID
+	// Get user by ID
 	app.Get("/users/:id", func(req kite.Request, res kite.Response) error {
 		id := req.Param("id")
-		return res.Json(UserResponse{
-			ID:    id,
-			Name:  "Carlos Silva",
-			Email: "carlos@email.com",
-			Role:  "admin",
+		for _, user := range mockUsers {
+			if user.ID == id {
+				return res.Json(user)
+			}
+		}
+		return res.Status(404).Json(kite.ErrorResponse{
+			Error:  "User not found",
+			Status: 404,
 		})
 	}).
-		Summary("Obter usuário por ID").
-		Description("Busca um usuário específico pelo seu identificador único").
-		Tags("Usuários").
-		Response(200, UserResponse{}, "Usuário encontrado").
-		Response(404, kite.ErrorResponse{}, "Usuário não encontrado")
+		Summary("Get user by ID").
+		Description("Fetches a specific user by their unique identifier").
+		Tags("Users").
+		Response(200, UserResponse{}, "User found").
+		Response(404, kite.ErrorResponse{}, "User not found")
 
-	// Criar usuário com validação e DTO documentado
+	// Create user with validation and documented DTO
 	app.Post("/users", func(req kite.Request, res kite.Response) error {
 		var dto CreateUserDTO
 		if err := req.BindJson(&dto); err != nil {
 			return res.Status(400).Json(kite.ErrorResponse{
-				Error:  "Corpo da requisição inválido: " + err.Error(),
+				Error:  "Invalid request body: " + err.Error(),
 				Status: 400,
 			})
 		}
@@ -85,16 +94,29 @@ func main() {
 		}
 		return res.Status(201).Json(created)
 	}).
-		Summary("Cadastrar novo usuário").
-		Description("Cria um novo usuário a partir dos dados enviados no corpo da requisição").
-		Tags("Usuários").
-		Body(CreateUserDTO{}, "Dados de criação do usuário").
-		Response(201, UserResponse{}, "Usuário criado com sucesso").
-		Response(400, kite.ErrorResponse{}, "Erro de validação nos dados")
+		Summary("Register new user").
+		Description("Creates a new user from the data sent in the request body").
+		Tags("Users").
+		Body(CreateUserDTO{}, "User creation data").
+		Response(201, UserResponse{}, "User successfully created").
+		Response(400, kite.ErrorResponse{}, "Validation error in data")
 
-	log.Println("🚀 Servidor iniciado!")
-	log.Println("📖 Documentação interativa (Scalar): http://localhost:3000/docs")
-	log.Println("📄 Especificação OpenAPI: http://localhost:3000/openapi.json")
+	// Render HTML Template
+	app.Get("/html", func(req kite.Request, res kite.Response) error {
+		return res.Render("hello", kite.Map{
+			"title": "Kite Template Example",
+			"name":  "Visitor",
+			"users": mockUsers,
+		})
+	}).
+		Summary("Render HTML Template").
+		Description("Demonstrates how to render HTML using Kite's Blade-like template engine").
+		Tags("General")
+
+	log.Println("🚀 Server started!")
+	log.Println("📖 Interactive documentation (Scalar): http://localhost:3000/docs")
+	log.Println("📄 OpenAPI specification: http://localhost:3000/openapi.json")
+	log.Println("🖼️ Template Example: http://localhost:3000/html")
 
 	log.Fatal(app.Listen(":3000"))
 }

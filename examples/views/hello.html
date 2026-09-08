@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }}</title>
+    <!-- Pico.css -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.classless.min.css"
+    >
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h1>Welcome, {{ .name }}!</h1>
+            <p>This is a demonstration of the Kite template engine.</p>
+        </header>
+        
+        <article>
+            <header><h3>User List</h3></header>
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Email</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($user in .users)
+                        <tr>
+                            <td>{{ $user.Name }}</td>
+                            <td>{{ $user.Email }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </article>
+    </main>
+</body>
+</html>
