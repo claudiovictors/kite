@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+## [1.0.7] - 2026-09-09
+
+### Added
+- **QueryBuilder extensions** (`database`): `All()`, `FirstOrFail()`, `WhereNull()`, `WhereNotNull()`, `WhereBetween()`, `WhereNotIn()`, `GroupBy()`, `Having()`, `Distinct()`, `Sum()`/`Avg()`/`Min()`/`Max()`, `Pluck()`, `Value()`, and `Chunk()`, bringing the query builder closer to Eloquent's fluent API.
+- **Test suite for `database` package**: added `query_builder_test.go` covering the full `QueryBuilder` API against an in-memory SQLite database (`modernc.org/sqlite`), including edge cases like `WhereBetween`, `Chunk` batching, `Pluck`/`Value`, and pagination metadata.
+
+### Known limitations
+- `Count()`/`Paginate()` combined with `GroupBy()` return one row per group rather than a single total, matching standard SQL behavior — documented here to avoid surprises.
+
 ## [1.0.6] - 2026-09-09
 
 ### Added

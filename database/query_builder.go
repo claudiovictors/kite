@@ -1,6 +1,7 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 	"math"
 	"reflect"
@@ -12,8 +13,9 @@ import (
  */
 type whereClause struct {
 	column  string
-	op      string
+	op      string // "=", ">", "IN", "NULL", "NOT NULL", "BETWEEN", "NOT IN"
 	value   interface{}
+	value2  interface{}
 	boolean string
 }
 
@@ -39,6 +41,9 @@ type QueryBuilder[T any] struct {
 	wheres     []whereClause
 	joins      []joinClause
 	selectCols []string
+	groupBy    []string
+	havings    []whereClause
+	distinct   bool
 	orderBy    string
 	desc       bool
 	limit      int
@@ -46,6 +51,273 @@ type QueryBuilder[T any] struct {
 	offset     int
 	hasOffset  bool
 }
+
+/**
+ * All é um alias explícito de Get, no estilo Model::all() do Eloquent.
+ * Semanticamente idêntico a Get(), existe apenas para deixar o código
+ * mais legível quando não há filtros aplicados.
+ *
+ * Exemplo:
+ *  users, err := database.Query[User](db).All()
+ *
+ * @return ([]T, error)
+ */
+func (q *QueryBuilder[T]) All() ([]T, error) {
+	return q.Get()
+}
+
+/**
+ * FirstOrFail executa a consulta como First, mas retorna ErrNotFound em
+ * vez de (nil, nil) quando nenhum registro é encontrado.
+ *
+ * Exemplo:
+ *  user, err := database.Query[User](db).Where("email", email).FirstOrFail()
+ *
+ * @return (*T, error)
+ */
+func (q *QueryBuilder[T]) FirstOrFail() (*T, error) {
+	result, err := q.First()
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrNotFound
+	}
+	return result, nil
+}
+
+/**
+ * WhereNull adiciona uma condição WHERE column IS NULL à consulta.
+ *
+ * @param column string
+ * @return *QueryBuilder[T]
+ */
+func (q *QueryBuilder[T]) WhereNull(column string) *QueryBuilder[T] {
+	q.wheres = append(q.wheres, whereClause{column: column, op: "NULL", boolean: "AND"})
+	return q
+}
+
+/**
+ * WhereNotNull adiciona uma condição WHERE column IS NOT NULL à consulta.
+ *
+ * @param column string
+ * @return *QueryBuilder[T]
+ */
+func (q *QueryBuilder[T]) WhereNotNull(column string) *QueryBuilder[T] {
+	q.wheres = append(q.wheres, whereClause{column: column, op: "NOT NULL", boolean: "AND"})
+	return q
+}
+
+/**
+ * WhereBetween adiciona uma condição WHERE column BETWEEN min AND max.
+ *
+ * Exemplo:
+ *  database.Query[Order](db).WhereBetween("total", 100, 500).Get()
+ *
+ * @param column string
+ * @param min interface{}
+ * @param max interface{}
+ * @return *QueryBuilder[T]
+ */
+func (q *QueryBuilder[T]) WhereBetween(column string, min, max interface{}) *QueryBuilder[T] {
+	q.wheres = append(q.wheres, whereClause{column: column, op: "BETWEEN", value: min, value2: max, boolean: "AND"})
+	return q
+}
+
+/**
+ * WhereNotIn adiciona uma restrição WHERE column NOT IN (...) à consulta.
+ *
+ * @param column string
+ * @param values []interface{}
+ * @return *QueryBuilder[T]
+ */
+func (q *QueryBuilder[T]) WhereNotIn(column string, values []interface{}) *QueryBuilder[T] {
+	q.wheres = append(q.wheres, whereClause{column: column, op: "NOT IN", value: values, boolean: "AND"})
+	return q
+}
+
+/**
+ * GroupBy define o agrupamento GROUP BY do resultado por uma ou mais colunas.
+ *
+ * @param columns ...string
+ * @return *QueryBuilder[T]
+ */
+func (q *QueryBuilder[T]) GroupBy(columns ...string) *QueryBuilder[T] {
+	q.groupBy = append(q.groupBy, columns...)
+	return q
+}
+
+/**
+ * Having adiciona uma condição HAVING, aplicada após o agrupamento (GROUP BY).
+ *
+ * Exemplo:
+ *  database.Query[Order](db).
+ *      GroupBy("user_id").
+ *      Having("COUNT(*)", ">", 5).
+ *      Get()
+ *
+ * @param column string
+ * @param args ...interface{}
+ * @return *QueryBuilder[T]
+ */
+func (q *QueryBuilder[T]) Having(column string, args ...interface{}) *QueryBuilder[T] {
+	op, value := parseWhereArgs(args)
+	q.havings = append(q.havings, whereClause{column: column, op: op, value: value, boolean: "AND"})
+	return q
+}
+
+/**
+ * Distinct adiciona o modificador DISTINCT à instrução SELECT, eliminando
+ * linhas duplicadas do resultado.
+ *
+ * @return *QueryBuilder[T]
+ */
+func (q *QueryBuilder[T]) Distinct() *QueryBuilder[T] {
+	q.distinct = true
+	return q
+}
+
+/**
+ * aggregate executa uma função de agregação SQL (SUM, AVG, MIN, MAX) sobre
+ * uma coluna, respeitando os filtros WHERE/JOIN já aplicados na consulta.
+ */
+func (q *QueryBuilder[T]) aggregate(fn, column string) (float64, error) {
+	whereSQL, args := q.buildWhereAndJoins()
+	query := fmt.Sprintf("SELECT %s(%s)%s", fn, column, whereSQL)
+
+	var result sql.NullFloat64
+	if err := q.db.conn.QueryRow(query, args...).Scan(&result); err != nil {
+		return 0, fmt.Errorf("orm: erro ao agregar %q: %w", query, err)
+	}
+	return result.Float64, nil
+}
+
+/**
+ * Sum retorna a soma dos valores de uma coluna numérica, respeitando os
+ * filtros aplicados na consulta. Retorna 0 se não houver registros.
+ *
+ * @param column string
+ * @return (float64, error)
+ */
+func (q *QueryBuilder[T]) Sum(column string) (float64, error) { return q.aggregate("SUM", column) }
+
+/**
+ * Avg retorna a média dos valores de uma coluna numérica.
+ *
+ * @param column string
+ * @return (float64, error)
+ */
+func (q *QueryBuilder[T]) Avg(column string) (float64, error) { return q.aggregate("AVG", column) }
+
+/**
+ * Min retorna o menor valor de uma coluna.
+ *
+ * @param column string
+ * @return (float64, error)
+ */
+func (q *QueryBuilder[T]) Min(column string) (float64, error) { return q.aggregate("MIN", column) }
+
+/**
+ * Max retorna o maior valor de uma coluna.
+ *
+ * @param column string
+ * @return (float64, error)
+ */
+func (q *QueryBuilder[T]) Max(column string) (float64, error) { return q.aggregate("MAX", column) }
+
+/**
+ * Pluck executa a consulta projetando apenas a coluna informada e retorna
+ * todos os seus valores como uma slice, sem materializar a struct inteira.
+ *
+ * Exemplo:
+ *  emails, err := database.Query[User](db).Where("active", true).Pluck("email")
+ *
+ * @param column string
+ * @return ([]interface{}, error)
+ */
+func (q *QueryBuilder[T]) Pluck(column string) ([]interface{}, error) {
+	whereSQL, args := q.buildWhereAndJoins()
+	query := fmt.Sprintf("SELECT %s%s", column, whereSQL)
+
+	rows, err := q.db.conn.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("orm: erro ao executar pluck %q: %w", query, err)
+	}
+	defer rows.Close()
+
+	var out []interface{}
+	for rows.Next() {
+		var v interface{}
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+/**
+ * Value retorna o valor de uma única coluna do primeiro registro
+ * correspondente à consulta, ou nil se não houver resultado.
+ *
+ * Exemplo:
+ *  name, err := database.Query[User](db).Where("id", 1).Value("name")
+ *
+ * @param column string
+ * @return (interface{}, error)
+ */
+func (q *QueryBuilder[T]) Value(column string) (interface{}, error) {
+	q.Limit(1)
+	values, err := q.Pluck(column)
+	if err != nil {
+		return nil, err
+	}
+	if len(values) == 0 {
+		return nil, nil
+	}
+	return values[0], nil
+}
+
+/**
+ * Chunk executa a consulta em lotes de tamanho size, chamando fn para cada
+ * lote, evitando carregar todos os registros em memória de uma só vez.
+ * A execução para na primeira chamada de fn que retornar erro.
+ *
+ * Exemplo:
+ *  err := database.Query[User](db).Chunk(100, func(batch []User) error {
+ *      for _, u := range batch { ... }
+ *      return nil
+ *  })
+ *
+ * @param size int
+ * @param fn func([]T) error
+ * @return error
+ */
+func (q *QueryBuilder[T]) Chunk(size int, fn func([]T) error) error {
+	page := 0
+	for {
+		batch := *q
+		batch.Limit(size)
+		batch.Offset(page * size)
+
+		results, err := batch.Get()
+		if err != nil {
+			return err
+		}
+		if len(results) == 0 {
+			return nil
+		}
+		if err := fn(results); err != nil {
+			return err
+		}
+		if len(results) < size {
+			return nil
+		}
+		page++
+	}
+}
+
+
 
 /**
  * Query inicializa um novo QueryBuilder fortemente tipado para o modelo informado.
@@ -240,18 +512,45 @@ func (q *QueryBuilder[T]) buildWhereAndJoins() (string, []interface{}) {
 			if i > 0 {
 				fmt.Fprintf(&sb, " %s ", w.boolean)
 			}
-			if w.op == "IN" {
+			switch w.op {
+			case "NULL":
+				fmt.Fprintf(&sb, "%s IS NULL", w.column)
+			case "NOT NULL":
+				fmt.Fprintf(&sb, "%s IS NOT NULL", w.column)
+			case "BETWEEN":
+				fmt.Fprintf(&sb, "%s BETWEEN ? AND ?", w.column)
+				args = append(args, w.value, w.value2)
+			case "IN", "NOT IN":
 				values, _ := w.value.([]interface{})
 				placeholders := make([]string, len(values))
 				for j, v := range values {
 					placeholders[j] = "?"
 					args = append(args, v)
 				}
-				fmt.Fprintf(&sb, "%s IN (%s)", w.column, strings.Join(placeholders, ", "))
-			} else {
+				verb := "IN"
+				if w.op == "NOT IN" {
+					verb = "NOT IN"
+				}
+				fmt.Fprintf(&sb, "%s %s (%s)", w.column, verb, strings.Join(placeholders, ", "))
+			default:
 				fmt.Fprintf(&sb, "%s %s ?", w.column, w.op)
 				args = append(args, w.value)
 			}
+		}
+	}
+
+	if len(q.groupBy) > 0 {
+		fmt.Fprintf(&sb, " GROUP BY %s", strings.Join(q.groupBy, ", "))
+	}
+
+	if len(q.havings) > 0 {
+		sb.WriteString(" HAVING ")
+		for i, h := range q.havings {
+			if i > 0 {
+				fmt.Fprintf(&sb, " %s ", h.boolean)
+			}
+			fmt.Fprintf(&sb, "%s %s ?", h.column, h.op)
+			args = append(args, h.value)
 		}
 	}
 
@@ -261,8 +560,13 @@ func (q *QueryBuilder[T]) buildWhereAndJoins() (string, []interface{}) {
 func (q *QueryBuilder[T]) buildSelect() (string, []interface{}) {
 	whereSQL, args := q.buildWhereAndJoins()
 
+	selectKeyword := "SELECT"
+	if q.distinct {
+		selectKeyword = "SELECT DISTINCT"
+	}
+
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "SELECT %s%s", strings.Join(q.columns(), ", "), whereSQL)
+	fmt.Fprintf(&sb, "%s %s%s", selectKeyword, strings.Join(q.columns(), ", "), whereSQL)
 
 	if q.orderBy != "" {
 		sb.WriteString(" ORDER BY ")
