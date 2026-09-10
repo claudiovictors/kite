@@ -1,30 +1,30 @@
-// Package http fornece um cliente HTTP fluente para consumir APIs
-// externas, inspirado na facade Http:: do Laravel. Permite construir
-// pedidos de forma encadeável e devolver respostas com helpers para
-// JSON, texto, status, etc.
+// Package http provides a fluent HTTP client for consuming external APIs,
+// inspired by Laravel's Http:: facade. It allows building requests in a
+// chainable manner and returning responses with helpers for JSON, text,
+// status codes, etc.
 //
-// Exemplo rápido:
+// Quick example:
 //
-//  resp, err := http.Get("https://api.exemplo.com/users")
-//  if err != nil {
-//      log.Fatal(err)
-//  }
-//  fmt.Println(resp.Status())   // 200
-//  fmt.Println(resp.Body())     // corpo como string
+//	resp, err := http.Get("https://api.example.com/users")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Println(resp.Status())   // 200
+//	fmt.Println(resp.Body())     // body as string
 //
-//  var users []User
-//  resp.Json(&users)            // decode JSON
+//	var users []User
+//	resp.Json(&users)            // decode JSON
 //
-// Exemplo com builder:
+// Builder example:
 //
-//  resp, err := http.NewRequest().
-//      WithToken("meu-jwt-token").
-//      WithHeader("X-Custom", "valor").
-//      Timeout(10 * time.Second).
-//      Post("https://api.exemplo.com/users", map[string]interface{}{
-//          "nome":  "Ana",
-//          "email": "ana@exemplo.com",
-//      })
+//	resp, err := http.NewRequest().
+//	    WithToken("my-jwt-token").
+//	    WithHeader("X-Custom", "value").
+//	    Timeout(10 * time.Second).
+//	    Post("https://api.example.com/users", map[string]interface{}{
+//	        "name":  "Ana",
+//	        "email": "ana@example.com",
+//	    })
 package http
 
 import (
@@ -41,13 +41,13 @@ import (
 )
 
 // ----------------------------------------------------------------------
-// PendingRequest: construtor fluente de pedidos HTTP
+// PendingRequest: fluent builder for HTTP requests
 // ----------------------------------------------------------------------
 
 /**
- * PendingRequest acumula a configuração de um pedido HTTP antes de o
- * enviar. Use NewRequest() para criar um, ou os atalhos globais Get(),
- * Post(), etc., para pedidos simples.
+ * PendingRequest accumulates the configuration of an HTTP request before
+ * sending it. Use NewRequest() to create one, or the global shortcuts Get(),
+ * Post(), etc., for simple requests.
  */
 type PendingRequest struct {
 	client  *http.Client
@@ -63,9 +63,9 @@ type PendingRequest struct {
 }
 
 /**
- * NewRequest cria um PendingRequest com valores sane defaults (Timeout padrão de 30s).
+ * NewRequest creates a PendingRequest with sane defaults (30s default timeout).
  *
- * Exemplo:
+ * Example:
  *  req := http.NewRequest()
  *
  * @return *PendingRequest
@@ -80,12 +80,12 @@ func NewRequest() *PendingRequest {
 }
 
 /**
- * BaseURL define uma URL base que será prefixada a cada pedido,
- * útil quando todos os endpoints compartilham o mesmo domínio.
+ * BaseURL sets a base URL that will be prefixed to every request,
+ * useful when all endpoints share the same domain.
  *
- * Exemplo:
- *  client := http.NewRequest().BaseURL("https://api.exemplo.com")
- *  resp, _ := client.Get("/users")       // GET https://api.exemplo.com/users
+ * Example:
+ *  client := http.NewRequest().BaseURL("https://api.example.com")
+ *  resp, _ := client.Get("/users")       // GET https://api.example.com/users
  *
  * @param base string
  * @return *PendingRequest
@@ -96,10 +96,10 @@ func (pr *PendingRequest) BaseURL(base string) *PendingRequest {
 }
 
 /**
- * Timeout define o tempo máximo para o pedido completo (conexão + leitura do corpo).
- * O padrão é 30 segundos.
+ * Timeout sets the maximum time for the full request (connection + body read).
+ * Default is 30 seconds.
  *
- * Exemplo:
+ * Example:
  *  req.Timeout(10 * time.Second)
  *
  * @param d time.Duration
@@ -112,10 +112,10 @@ func (pr *PendingRequest) Timeout(d time.Duration) *PendingRequest {
 }
 
 /**
- * WithHeader adiciona um cabeçalho ao pedido. É encadeável.
+ * WithHeader adds a header to the request. It is chainable.
  *
- * Exemplo:
- *  req.WithHeader("X-Custom-Header", "valor")
+ * Example:
+ *  req.WithHeader("X-Custom-Header", "value")
  *
  * @param key string
  * @param value string
@@ -127,9 +127,9 @@ func (pr *PendingRequest) WithHeader(key, value string) *PendingRequest {
 }
 
 /**
- * WithHeaders adiciona múltiplos cabeçalhos de uma vez através de um map.
+ * WithHeaders adds multiple headers at once via a map.
  *
- * Exemplo:
+ * Example:
  *  req.WithHeaders(map[string]string{"Accept": "application/json", "X-App": "Mobile"})
  *
  * @param headers map[string]string
@@ -143,10 +143,10 @@ func (pr *PendingRequest) WithHeaders(headers map[string]string) *PendingRequest
 }
 
 /**
- * WithToken adiciona um cabeçalho Authorization: Bearer <token>.
- * Equivalente ao Http::withToken() do Laravel.
+ * WithToken adds an Authorization: Bearer <token> header.
+ * Equivalent to Laravel's Http::withToken().
  *
- * Exemplo:
+ * Example:
  *  req.WithToken("eyJhbGciOi...")
  *
  * @param token string
@@ -158,11 +158,11 @@ func (pr *PendingRequest) WithToken(token string) *PendingRequest {
 }
 
 /**
- * WithBasicAuth adiciona autenticação HTTP Basic ao cabeçalho Authorization.
- * Equivalente ao Http::withBasicAuth() do Laravel.
+ * WithBasicAuth adds HTTP Basic authentication to the Authorization header.
+ * Equivalent to Laravel's Http::withBasicAuth().
  *
- * Exemplo:
- *  req.WithBasicAuth("usuario", "senha123")
+ * Example:
+ *  req.WithBasicAuth("user", "password123")
  *
  * @param user string
  * @param password string
@@ -174,9 +174,9 @@ func (pr *PendingRequest) WithBasicAuth(user, password string) *PendingRequest {
 }
 
 /**
- * Accept define o cabeçalho Accept do pedido.
+ * Accept sets the Accept header of the request.
  *
- * Exemplo:
+ * Example:
  *  req.Accept("text/xml")
  *
  * @param contentType string
@@ -188,9 +188,9 @@ func (pr *PendingRequest) Accept(contentType string) *PendingRequest {
 }
 
 /**
- * AcceptJSON é um atalho para Accept("application/json").
+ * AcceptJSON is a shortcut for Accept("application/json").
  *
- * Exemplo:
+ * Example:
  *  req.AcceptJSON()
  *
  * @return *PendingRequest
@@ -200,9 +200,9 @@ func (pr *PendingRequest) AcceptJSON() *PendingRequest {
 }
 
 /**
- * ContentType define o cabeçalho Content-Type do pedido.
+ * ContentType sets the Content-Type header of the request.
  *
- * Exemplo:
+ * Example:
  *  req.ContentType("application/x-www-form-urlencoded")
  *
  * @param ct string
@@ -214,9 +214,9 @@ func (pr *PendingRequest) ContentType(ct string) *PendingRequest {
 }
 
 /**
- * WithQuery adiciona um único parâmetro à query string da URL.
+ * WithQuery adds a single parameter to the URL query string.
  *
- * Exemplo:
+ * Example:
  *  req.WithQuery("page", "2")
  *
  * @param key string
@@ -229,9 +229,9 @@ func (pr *PendingRequest) WithQuery(key, value string) *PendingRequest {
 }
 
 /**
- * WithQueryParams adiciona múltiplos parâmetros de query string via map.
+ * WithQueryParams adds multiple query string parameters via a map.
  *
- * Exemplo:
+ * Example:
  *  req.WithQueryParams(map[string]string{"page": "1", "limit": "20"})
  *
  * @param params map[string]string
@@ -245,9 +245,9 @@ func (pr *PendingRequest) WithQueryParams(params map[string]string) *PendingRequ
 }
 
 /**
- * WithCookie adiciona um cookie ao pedido.
+ * WithCookie adds a cookie to the request.
  *
- * Exemplo:
+ * Example:
  *  req.WithCookie("session_id", "abc123xyz")
  *
  * @param name string
@@ -260,10 +260,10 @@ func (pr *PendingRequest) WithCookie(name, value string) *PendingRequest {
 }
 
 /**
- * WithCookies adiciona múltiplos cookies ao pedido via map.
+ * WithCookies adds multiple cookies to the request via a map.
  *
- * Exemplo:
- *  req.WithCookies(map[string]string{"theme": "dark", "lang": "pt"})
+ * Example:
+ *  req.WithCookies(map[string]string{"theme": "dark", "lang": "en"})
  *
  * @param cookies map[string]string
  * @return *PendingRequest
@@ -276,13 +276,14 @@ func (pr *PendingRequest) WithCookies(cookies map[string]string) *PendingRequest
 }
 
 /**
- * Retry configura a quantidade de tentativas e o intervalo de espera entre elas em caso de falha de rede ou erros 5xx.
- * O pedido será tentado até retries+1 vezes no total.
+ * Retry configures the number of retry attempts and the delay between them
+ * in case of network failures or 5xx errors. The request will be attempted
+ * up to retries+1 times in total.
  *
- * Exemplo:
+ * Example:
  *  resp, err := http.NewRequest().
  *      Retry(3, 500*time.Millisecond).
- *      Get("https://api.instavel.com/dados")
+ *      Get("https://api.unstable.com/data")
  *
  * @param retries int
  * @param delay time.Duration
@@ -295,9 +296,9 @@ func (pr *PendingRequest) Retry(retries int, delay time.Duration) *PendingReques
 }
 
 /**
- * WithoutRedirects desativa o seguimento automático de redirecionamentos (3xx).
+ * WithoutRedirects disables automatic following of redirects (3xx).
  *
- * Exemplo:
+ * Example:
  *  req.WithoutRedirects()
  *
  * @return *PendingRequest
@@ -310,13 +311,13 @@ func (pr *PendingRequest) WithoutRedirects() *PendingRequest {
 }
 
 // ----------------------------------------------------------------------
-// Métodos de envio (verbos HTTP)
+// Send methods (HTTP verbs)
 // ----------------------------------------------------------------------
 
 /**
- * Get envia um pedido HTTP GET para a URL indicada.
+ * Get sends an HTTP GET request to the given URL.
  *
- * Exemplo:
+ * Example:
  *  resp, err := req.Get("/users")
  *
  * @param url string
@@ -327,10 +328,10 @@ func (pr *PendingRequest) Get(url string) (*ClientResponse, error) {
 }
 
 /**
- * Post envia um pedido HTTP POST com corpo JSON.
- * O parâmetro data é serializado para JSON automaticamente. Passe nil se o pedido não tiver corpo.
+ * Post sends an HTTP POST request with a JSON body.
+ * The data parameter is automatically serialized to JSON. Pass nil if the request has no body.
  *
- * Exemplo:
+ * Example:
  *  resp, err := req.Post("/users", map[string]string{"name": "Ana"})
  *
  * @param url string
@@ -342,9 +343,9 @@ func (pr *PendingRequest) Post(url string, data interface{}) (*ClientResponse, e
 }
 
 /**
- * Put envia um pedido HTTP PUT com corpo JSON.
+ * Put sends an HTTP PUT request with a JSON body.
  *
- * Exemplo:
+ * Example:
  *  resp, err := req.Put("/users/1", userStruct)
  *
  * @param url string
@@ -356,9 +357,9 @@ func (pr *PendingRequest) Put(url string, data interface{}) (*ClientResponse, er
 }
 
 /**
- * Patch envia um pedido HTTP PATCH com corpo JSON.
+ * Patch sends an HTTP PATCH request with a JSON body.
  *
- * Exemplo:
+ * Example:
  *  resp, err := req.Patch("/users/1", map[string]interface{}{"status": "active"})
  *
  * @param url string
@@ -370,9 +371,9 @@ func (pr *PendingRequest) Patch(url string, data interface{}) (*ClientResponse, 
 }
 
 /**
- * Delete envia um pedido HTTP DELETE. O parâmetro data é opcional (pode ser omitido ou nil).
+ * Delete sends an HTTP DELETE request. The data parameter is optional (may be omitted or nil).
  *
- * Exemplo:
+ * Example:
  *  resp, err := req.Delete("/users/1")
  *
  * @param url string
@@ -391,9 +392,9 @@ func (pr *PendingRequest) Delete(url string, data ...interface{}) (*ClientRespon
 }
 
 /**
- * Head envia um pedido HTTP HEAD para a URL indicada.
+ * Head sends an HTTP HEAD request to the given URL.
  *
- * Exemplo:
+ * Example:
  *  resp, err := req.Head("/files/download.zip")
  *
  * @param url string
@@ -404,9 +405,9 @@ func (pr *PendingRequest) Head(url string) (*ClientResponse, error) {
 }
 
 /**
- * Options envia um pedido HTTP OPTIONS para a URL indicada.
+ * Options sends an HTTP OPTIONS request to the given URL.
  *
- * Exemplo:
+ * Example:
  *  resp, err := req.Options("/api/v1")
  *
  * @param url string
@@ -417,11 +418,11 @@ func (pr *PendingRequest) Options(url string) (*ClientResponse, error) {
 }
 
 /**
- * PostForm envia um pedido HTTP POST codificado como application/x-www-form-urlencoded.
+ * PostForm sends an HTTP POST request encoded as application/x-www-form-urlencoded.
  *
- * Exemplo:
+ * Example:
  *  resp, _ := http.NewRequest().PostForm("https://api.com/login", map[string]string{
- *      "email":    "ana@ex.com",
+ *      "email":    "ana@example.com",
  *      "password": "123456",
  *  })
  *
@@ -440,11 +441,12 @@ func (pr *PendingRequest) PostForm(reqURL string, data map[string]string) (*Clie
 }
 
 /**
- * PostMultipart envia um pedido HTTP POST multipart/form-data, ideal para upload de arquivos combinados com campos de texto.
+ * PostMultipart sends an HTTP POST multipart/form-data request, ideal for uploading
+ * files combined with text fields.
  *
- * Exemplo:
+ * Example:
  *  resp, _ := http.NewRequest().PostMultipart("https://api.com/upload",
- *      map[string]string{"descricao": "foto de perfil"},
+ *      map[string]string{"description": "profile photo"},
  *      map[string][]byte{"avatar": avatarBytes},
  *  )
  *
@@ -459,22 +461,22 @@ func (pr *PendingRequest) PostMultipart(reqURL string, fields map[string]string,
 
 	for key, val := range fields {
 		if err := writer.WriteField(key, val); err != nil {
-			return nil, fmt.Errorf("http: erro ao escrever campo %q: %w", key, err)
+			return nil, fmt.Errorf("http: error writing field %q: %w", key, err)
 		}
 	}
 
 	for name, data := range files {
 		part, err := writer.CreateFormFile(name, name)
 		if err != nil {
-			return nil, fmt.Errorf("http: erro ao criar parte multipart %q: %w", name, err)
+			return nil, fmt.Errorf("http: error creating multipart part %q: %w", name, err)
 		}
 		if _, err := part.Write(data); err != nil {
-			return nil, fmt.Errorf("http: erro ao escrever ficheiro %q: %w", name, err)
+			return nil, fmt.Errorf("http: error writing file %q: %w", name, err)
 		}
 	}
 
 	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("http: erro ao fechar writer multipart: %w", err)
+		return nil, fmt.Errorf("http: error closing multipart writer: %w", err)
 	}
 
 	pr.headers["Content-Type"] = writer.FormDataContentType()
@@ -482,11 +484,11 @@ func (pr *PendingRequest) PostMultipart(reqURL string, fields map[string]string,
 }
 
 // ----------------------------------------------------------------------
-// Envio interno
+// Internal send helpers
 // ----------------------------------------------------------------------
 
 /**
- * sendJSON auxilia a serialização do corpo em JSON e ajusta o Content-Type antes de chamar o método send.
+ * sendJSON serializes the body to JSON and sets the Content-Type before calling send.
  *
  * @param method string
  * @param reqURL string
@@ -498,7 +500,7 @@ func (pr *PendingRequest) sendJSON(method, reqURL string, data interface{}) (*Cl
 	if data != nil {
 		jsonBytes, err := json.Marshal(data)
 		if err != nil {
-			return nil, fmt.Errorf("http: erro ao serializar JSON: %w", err)
+			return nil, fmt.Errorf("http: error serializing JSON: %w", err)
 		}
 		body = bytes.NewReader(jsonBytes)
 		if _, ok := pr.headers["Content-Type"]; !ok {
@@ -509,7 +511,8 @@ func (pr *PendingRequest) sendJSON(method, reqURL string, data interface{}) (*Cl
 }
 
 /**
- * resolveURL monta a URL final unindo a baseURL (se definida) e anexando os parâmetros de query string.
+ * resolveURL builds the final URL by joining the baseURL (if set) and appending
+ * any query string parameters.
  *
  * @param rawURL string
  * @return string
@@ -529,7 +532,8 @@ func (pr *PendingRequest) resolveURL(rawURL string) string {
 }
 
 /**
- * send executa o pedido HTTP nativo lidando com tentativas de retry, envio de headers, cookies e leitura da resposta.
+ * send executes the native HTTP request, handling retry attempts, headers,
+ * cookies, and reading the response.
  *
  * @param method string
  * @param rawURL string
@@ -549,7 +553,7 @@ func (pr *PendingRequest) send(method, rawURL string, body io.Reader) (*ClientRe
 
 		req, err := http.NewRequest(method, fullURL, body)
 		if err != nil {
-			return nil, fmt.Errorf("http: erro ao criar pedido: %w", err)
+			return nil, fmt.Errorf("http: error creating request: %w", err)
 		}
 
 		for k, v := range pr.headers {
@@ -579,7 +583,7 @@ func (pr *PendingRequest) send(method, rawURL string, body io.Reader) (*ClientRe
 			cookies:    resp.Cookies(),
 		}
 
-		// Só faz retry em server errors (5xx)
+		// Only retry on server errors (5xx)
 		if resp.StatusCode >= 500 && attempt < maxAttempts-1 {
 			lastErr = fmt.Errorf("http: status %d", resp.StatusCode)
 			continue
@@ -588,17 +592,17 @@ func (pr *PendingRequest) send(method, rawURL string, body io.Reader) (*ClientRe
 		return cr, nil
 	}
 
-	return nil, fmt.Errorf("http: todas as %d tentativas falharam: %w", maxAttempts, lastErr)
+	return nil, fmt.Errorf("http: all %d attempts failed: %w", maxAttempts, lastErr)
 }
 
 // ----------------------------------------------------------------------
-// ClientResponse: resposta recebida de uma API externa
+// ClientResponse: response received from an external API
 // ----------------------------------------------------------------------
 
 /**
- * ClientResponse encapsula a resposta de um pedido HTTP feito pelo
- * cliente, com helpers para ler o corpo como JSON, texto, verificar
- * status, etc. — equivalente ao Response do Http:: do Laravel.
+ * ClientResponse wraps the response from an HTTP request made by the
+ * client, with helpers to read the body as JSON, text, check status,
+ * etc. — equivalent to Laravel's Http:: Response.
  */
 type ClientResponse struct {
 	statusCode int
@@ -608,7 +612,7 @@ type ClientResponse struct {
 }
 
 /**
- * Status devolve o código de estado HTTP da resposta (ex: 200, 404, 500).
+ * Status returns the HTTP status code of the response (e.g. 200, 404, 500).
  *
  * @return int
  */
@@ -617,7 +621,7 @@ func (r *ClientResponse) Status() int {
 }
 
 /**
- * Ok indica se o status está na faixa de sucesso (200-299).
+ * Ok reports whether the status is in the success range (200-299).
  *
  * @return bool
  */
@@ -626,7 +630,7 @@ func (r *ClientResponse) Ok() bool {
 }
 
 /**
- * Successful é um alias para Ok(). Indica se a requisição foi bem-sucedida (2xx).
+ * Successful is an alias for Ok(). Reports whether the request succeeded (2xx).
  *
  * @return bool
  */
@@ -635,7 +639,7 @@ func (r *ClientResponse) Successful() bool {
 }
 
 /**
- * Failed indica se a resposta possui um código de erro (status >= 400).
+ * Failed reports whether the response has an error status code (>= 400).
  *
  * @return bool
  */
@@ -644,7 +648,7 @@ func (r *ClientResponse) Failed() bool {
 }
 
 /**
- * ServerError indica se ocorreu um erro interno no servidor remoto (status 5xx).
+ * ServerError reports whether an internal error occurred on the remote server (5xx).
  *
  * @return bool
  */
@@ -653,7 +657,7 @@ func (r *ClientResponse) ServerError() bool {
 }
 
 /**
- * ClientError indica se o erro foi provocado por um parâmetro/requisição do cliente (status 4xx).
+ * ClientError reports whether the error was caused by a client-side request issue (4xx).
  *
  * @return bool
  */
@@ -662,7 +666,7 @@ func (r *ClientResponse) ClientError() bool {
 }
 
 /**
- * Redirect indica se a resposta é um redirecionamento (status 3xx).
+ * Redirect reports whether the response is a redirect (3xx).
  *
  * @return bool
  */
@@ -671,7 +675,7 @@ func (r *ClientResponse) Redirect() bool {
 }
 
 /**
- * Unauthorized indica se o pedido não foi autorizado (status 401).
+ * Unauthorized reports whether the request was not authorized (status 401).
  *
  * @return bool
  */
@@ -680,7 +684,7 @@ func (r *ClientResponse) Unauthorized() bool {
 }
 
 /**
- * Forbidden indica se o acesso ao recurso foi proibido (status 403).
+ * Forbidden reports whether access to the resource was forbidden (status 403).
  *
  * @return bool
  */
@@ -689,7 +693,7 @@ func (r *ClientResponse) Forbidden() bool {
 }
 
 /**
- * NotFound indica se o recurso requisitado não foi encontrado (status 404).
+ * NotFound reports whether the requested resource was not found (status 404).
  *
  * @return bool
  */
@@ -698,7 +702,7 @@ func (r *ClientResponse) NotFound() bool {
 }
 
 /**
- * Body devolve o corpo bruto da resposta convertido para string.
+ * Body returns the raw response body as a string.
  *
  * @return string
  */
@@ -707,7 +711,7 @@ func (r *ClientResponse) Body() string {
 }
 
 /**
- * Bytes devolve a fatia de bytes ([]byte) bruta do corpo da resposta.
+ * Bytes returns the raw byte slice of the response body.
  *
  * @return []byte
  */
@@ -716,9 +720,9 @@ func (r *ClientResponse) Bytes() []byte {
 }
 
 /**
- * Json descodifica o corpo JSON da resposta para a estrutura de destino fornecida (ponteiro).
+ * Json decodes the JSON response body into the provided destination (pointer).
  *
- * Exemplo:
+ * Example:
  *  var user User
  *  resp.Json(&user)
  *
@@ -727,17 +731,18 @@ func (r *ClientResponse) Bytes() []byte {
  */
 func (r *ClientResponse) Json(dest interface{}) error {
 	if len(r.body) == 0 {
-		return fmt.Errorf("http: corpo vazio, não é possível descodificar JSON")
+		return fmt.Errorf("http: empty body, cannot decode JSON")
 	}
 	return json.Unmarshal(r.body, dest)
 }
 
 /**
- * Map descodifica o corpo JSON num map[string]interface{}, útil para respostas sem struct definida.
+ * Map decodes the JSON body into a map[string]interface{}, useful for responses
+ * without a defined struct.
  *
- * Exemplo:
- *  dados, _ := resp.Map()
- *  fmt.Println(dados["nome"])
+ * Example:
+ *  data, _ := resp.Map()
+ *  fmt.Println(data["name"])
  *
  * @return (map[string]interface{}, error)
  */
@@ -750,12 +755,13 @@ func (r *ClientResponse) Map() (map[string]interface{}, error) {
 }
 
 /**
- * Collect descodifica o corpo JSON numa lista/slice de maps, útil quando a API devolve um array de objetos JSON.
+ * Collect decodes the JSON body into a slice of maps, useful when the API
+ * returns a JSON array of objects.
  *
- * Exemplo:
+ * Example:
  *  items, _ := resp.Collect()
  *  for _, item := range items {
- *      fmt.Println(item["nome"])
+ *      fmt.Println(item["name"])
  *  }
  *
  * @return ([]map[string]interface{}, error)
@@ -769,7 +775,7 @@ func (r *ClientResponse) Collect() ([]map[string]interface{}, error) {
 }
 
 /**
- * Header devolve o primeiro valor associado ao cabeçalho informado da resposta.
+ * Header returns the first value associated with the given response header name.
  *
  * @param name string
  * @return string
@@ -779,7 +785,7 @@ func (r *ClientResponse) Header(name string) string {
 }
 
 /**
- * Headers devolve todos os cabeçalhos recebidos na resposta HTTP.
+ * Headers returns all headers received in the HTTP response.
  *
  * @return http.Header
  */
@@ -788,7 +794,7 @@ func (r *ClientResponse) Headers() http.Header {
 }
 
 /**
- * Cookies devolve todos os cookies definidos pelo servidor através da resposta.
+ * Cookies returns all cookies set by the server in the response.
  *
  * @return []*http.Cookie
  */
@@ -797,7 +803,7 @@ func (r *ClientResponse) Cookies() []*http.Cookie {
 }
 
 /**
- * Cookie devolve o valor de um cookie específico pelo nome, ou uma string vazia caso não seja encontrado.
+ * Cookie returns the value of a specific cookie by name, or an empty string if not found.
  *
  * @param name string
  * @return string
@@ -812,14 +818,14 @@ func (r *ClientResponse) Cookie(name string) string {
 }
 
 // ----------------------------------------------------------------------
-// Atalhos globais (funções de pacote)
+// Global shortcuts (package-level functions)
 // ----------------------------------------------------------------------
 
 /**
- * Get é um atalho global para NewRequest().Get(url).
+ * Get is a global shortcut for NewRequest().Get(url).
  *
- * Exemplo:
- *  resp, err := http.Get("https://api.exemplo.com/users")
+ * Example:
+ *  resp, err := http.Get("https://api.example.com/users")
  *
  * @param url string
  * @return (*ClientResponse, error)
@@ -829,10 +835,10 @@ func Get(url string) (*ClientResponse, error) {
 }
 
 /**
- * Post é um atalho global para NewRequest().Post(url, data).
+ * Post is a global shortcut for NewRequest().Post(url, data).
  *
- * Exemplo:
- *  resp, err := http.Post("https://api.exemplo.com/users", payload)
+ * Example:
+ *  resp, err := http.Post("https://api.example.com/users", payload)
  *
  * @param url string
  * @param data interface{}
@@ -843,10 +849,10 @@ func Post(url string, data interface{}) (*ClientResponse, error) {
 }
 
 /**
- * Put é um atalho global para NewRequest().Put(url, data).
+ * Put is a global shortcut for NewRequest().Put(url, data).
  *
- * Exemplo:
- *  resp, err := http.Put("https://api.exemplo.com/users/1", payload)
+ * Example:
+ *  resp, err := http.Put("https://api.example.com/users/1", payload)
  *
  * @param url string
  * @param data interface{}
@@ -857,10 +863,10 @@ func Put(url string, data interface{}) (*ClientResponse, error) {
 }
 
 /**
- * Patch é um atalho global para NewRequest().Patch(url, data).
+ * Patch is a global shortcut for NewRequest().Patch(url, data).
  *
- * Exemplo:
- *  resp, err := http.Patch("https://api.exemplo.com/users/1", payload)
+ * Example:
+ *  resp, err := http.Patch("https://api.example.com/users/1", payload)
  *
  * @param url string
  * @param data interface{}
@@ -871,10 +877,10 @@ func Patch(url string, data interface{}) (*ClientResponse, error) {
 }
 
 /**
- * Delete é um atalho global para NewRequest().Delete(url, data...).
+ * Delete is a global shortcut for NewRequest().Delete(url, data...).
  *
- * Exemplo:
- *  resp, err := http.Delete("https://api.exemplo.com/users/1")
+ * Example:
+ *  resp, err := http.Delete("https://api.example.com/users/1")
  *
  * @param url string
  * @param data ...interface{}
@@ -885,11 +891,12 @@ func Delete(url string, data ...interface{}) (*ClientResponse, error) {
 }
 
 // ----------------------------------------------------------------------
-// Helpers internos
+// Internal helpers
 // ----------------------------------------------------------------------
 
 /**
- * basicAuth codifica credenciais user:password em Base64 para ser utilizado no cabeçalho HTTP Basic Auth.
+ * basicAuth encodes user:password credentials in Base64 for use in the
+ * HTTP Basic Auth header.
  *
  * @param user string
  * @param password string
